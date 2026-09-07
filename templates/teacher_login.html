@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:420px; margin:0 auto;">
+  <h1>Teacher Log In</h1>
+  <form method="POST">
+    <label>Username</label>
+    <input type="text" name="username" required autocomplete="username">
+    <label>Password</label>
+    <input type="password" name="password" required autocomplete="current-password">
+    <button type="submit">Log In</button>
+  </form>
+  <p style="margin-top:16px; font-size:0.9rem;">
+    First time? <a href="{{ url_for('teacher_register') }}">Create a teacher account</a>.
+  </p>
+</div>
+{% endblock %}

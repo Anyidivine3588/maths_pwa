@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero-math">
+  <div class="hero-symbols" aria-hidden="true">
+    <span>π</span><span>∑</span><span>√</span><span>∞</span><span>∫</span><span>Δ</span><span>θ</span><span>÷</span>
+  </div>
+  <div class="hero-inner">
+    <div class="hero-badge">WAEC · NECO · Exam Preparation</div>
+    <h1>Master Maths, One Step at a Time</h1>
+    <p>Step-by-step Algebra, Geometry and Graphs solvers built for WAEC/NECO students —
+       with a personal dashboard that tracks your progress, and a teacher view to
+       monitor the whole class.</p>
+    <div class="actions">
+      <a class="btn" href="{{ url_for('register') }}">Create Student Account</a>
+      <a class="btn btn-secondary" href="{{ url_for('login') }}">Student Log In</a>
+    </div>
+  </div>
+</section>
+
+<section class="feature-grid">
+  <div class="feature-card">
+    <div class="feature-icon" style="background:#eef2ff; color:#4f46e5;">x²</div>
+    <h3>Algebra</h3>
+    <p>Quadratics, linear equations, and simultaneous equations — solved with full working, not just the answer.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon" style="background:#fdf2f8; color:#db2777;">△</div>
+    <h3>Geometry</h3>
+    <p>Area, perimeter, volume, Pythagoras' theorem, and coordinate geometry, all with clear step-by-step layouts.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon" style="background:#ecfdf5; color:#059669;">📈</div>
+    <h3>Graphs</h3>
+    <p>Generate tables of values and plot functions instantly, including intersection points for simultaneous graphs.</p>
+  </div>
+</section>
+
+<section class="how-it-works">
+  <h2>How it works</h2>
+  <div class="steps-grid">
+    <div class="step-item"><div class="step-num">1</div><p>Create a free student account with your name and class.</p></div>
+    <div class="step-item"><div class="step-num">2</div><p>Pick a topic and enter your problem — get instant, worked-out steps.</p></div>
+    <div class="step-item"><div class="step-num">3</div><p>Track your own progress, and your teacher can see class-wide results.</p></div>
+  </div>
+</section>
+
+<p class="teacher-cta">
+  Are you a teacher? <a href="{{ url_for('teacher_login') }}">Log in to your dashboard</a>
+  or <a href="{{ url_for('teacher_register') }}">create a teacher account</a>.
+</p>
+{% endblock %}

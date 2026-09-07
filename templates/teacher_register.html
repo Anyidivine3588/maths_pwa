@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:420px; margin:0 auto;">
+  <h1>Create Teacher Account</h1>
+  <p style="color:var(--muted); font-size:0.88rem;">
+    You'll need the teacher signup code set up for this school by whoever deployed the app.
+  </p>
+  <form method="POST">
+    <label>Full name</label>
+    <input type="text" name="full_name" required>
+    <label>Username</label>
+    <input type="text" name="username" required>
+    <label>Password</label>
+    <input type="password" name="password" required>
+    <label>Teacher signup code</label>
+    <input type="password" name="code" required>
+    <button type="submit">Create Account</button>
+  </form>
+  <p style="margin-top:16px; font-size:0.9rem;">
+    Already registered? <a href="{{ url_for('teacher_login') }}">Log in</a>.
+  </p>
+</div>
+{% endblock %}

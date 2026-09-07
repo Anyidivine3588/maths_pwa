@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Algebra</h1>
+
+<div class="tabs">
+  <div class="tab active" data-tab="quad" onclick="showTab('quad')">Quadratic</div>
+  <div class="tab" data-tab="lin" onclick="showTab('lin')">Linear</div>
+  <div class="tab" data-tab="simlin" onclick="showTab('simlin')">Simultaneous (linear)</div>
+  <div class="tab" data-tab="simmix" onclick="showTab('simmix')">Simultaneous (linear + quadratic)</div>
+</div>
+
+<div id="quad" class="panel active card">
+  <h2>Quadratic Equation</h2>
+  <label>Equation (in x, set to 0), e.g. x^2 - 5x + 6</label>
+  <input type="text" id="quad_expr" placeholder="x^2 - 5x + 6">
+  <button onclick="postSolve('/api/solve/algebra/quadratic', {expr: document.getElementById('quad_expr').value}, 'quad_out')">Solve</button>
+  <div id="quad_out"></div>
+</div>
+
+<div id="lin" class="panel card">
+  <h2>Linear Equation</h2>
+  <label>Equation in x, e.g. 3x + 5 = 20</label>
+  <input type="text" id="lin_expr" placeholder="3x + 5 = 20">
+  <button onclick="postSolve('/api/solve/algebra/linear', {expr: document.getElementById('lin_expr').value}, 'lin_out')">Solve</button>
+  <div id="lin_out"></div>
+</div>
+
+<div id="simlin" class="panel card">
+  <h2>Simultaneous Linear Equations</h2>
+  <div class="two-col">
+    <div><label>Equation 1</label><input type="text" id="sl_eq1" placeholder="2x + y = 7"></div>
+    <div><label>Equation 2</label><input type="text" id="sl_eq2" placeholder="x - y = 2"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/algebra/simultaneous-linear', {eq1: document.getElementById('sl_eq1').value, eq2: document.getElementById('sl_eq2').value}, 'sl_out')">Solve</button>
+  <div id="sl_out"></div>
+</div>
+
+<div id="simmix" class="panel card">
+  <h2>Simultaneous — One Linear, One Quadratic</h2>
+  <div class="two-col">
+    <div><label>Linear equation</label><input type="text" id="sm_lin" placeholder="y = x + 1"></div>
+    <div><label>Quadratic equation</label><input type="text" id="sm_quad" placeholder="y = x^2 - 4x + 3"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/algebra/simultaneous-mixed', {linear: document.getElementById('sm_lin').value, quad: document.getElementById('sm_quad').value}, 'sm_out')">Solve</button>
+  <div id="sm_out"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+{% endblock %}

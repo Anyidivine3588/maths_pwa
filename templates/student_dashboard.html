@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Welcome back, {{ session.get('student_name') }} 👋</h1>
+
+<div class="grid" style="margin-bottom:20px;">
+  <div class="stat"><div class="num">{{ total }}</div><div class="label">Total problems solved</div></div>
+  <div class="stat"><div class="num">{{ topic_counts|length }}</div><div class="label">Topics explored</div></div>
+  <div class="stat"><div class="num">{{ success_rate if success_rate is not none else '—' }}{% if success_rate is not none %}%{% endif %}</div><div class="label">Accuracy (graded work)</div></div>
+</div>
+
+<div class="card">
+  <h2>Topic breakdown</h2>
+  {% if topic_counts %}
+    {% for t, c in topic_counts.items() %}
+      <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:0.9rem;">
+          <span>{{ topic_labels.get(t, t)|title }}</span><span>{{ c }}</span>
+        </div>
+        <div style="background:var(--border); border-radius:6px; height:8px; overflow:hidden;">
+          <div style="background:var(--primary); height:8px; width:{{ (c / total * 100) if total else 0 }}%;"></div>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p style="color:var(--muted);">You haven't tried any solvers yet — jump into a topic from the menu above to get started.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Recent activity</h2>
+  {% if recent %}
+  <table>
+    <tr><th>When</th><th>Topic</th><th>Tool</th><th>Input</th></tr>
+    {% for a in recent %}
+    <tr>
+      <td>{{ a["created_at"][:16].replace("T"," ") }}</td>
+      <td>{{ topic_labels.get(a["topic"], a["topic"]) }}</td>
+      <td>{{ a["subtopic"]|replace("-", " ")|title }}</td>
+      <td>{{ a["input_summary"] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+    <p style="color:var(--muted);">No activity yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Graphs</h1>
+
+<div class="tabs">
+  <div class="tab active" data-tab="table" onclick="showTab('table')">Table of Values</div>
+  <div class="tab" data-tab="plot" onclick="showTab('plot')">Plot Function(s)</div>
+</div>
+
+<div id="table" class="panel active card">
+  <h2>Table of Values</h2>
+  <label>f(x) =</label>
+  <input type="text" id="t_expr" placeholder="x^2 - 2x - 3">
+  <div class="two-col">
+    <div><label>x min</label><input type="text" id="t_min" value="-3"></div>
+    <div><label>x max</label><input type="text" id="t_max" value="3"></div>
+  </div>
+  <label>Step</label>
+  <input type="text" id="t_step" value="1">
+  <button onclick="postSolve('/api/solve/graphs/table', {expr: document.getElementById('t_expr').value, x_min: document.getElementById('t_min').value, x_max: document.getElementById('t_max').value, step: document.getElementById('t_step').value}, 't_out')">Generate</button>
+  <div id="t_out"></div>
+</div>
+
+<div id="plot" class="panel card">
+  <h2>Plot Function(s)</h2>
+  <label>f(x) =</label>
+  <input type="text" id="pl_expr" placeholder="x^2 - 2x - 3">
+  <label>g(x) = (optional, for intersection)</label>
+  <input type="text" id="pl_expr2" placeholder="x + 1">
+  <div class="two-col">
+    <div><label>x min</label><input type="text" id="pl_min" value="-10"></div>
+    <div><label>x max</label><input type="text" id="pl_max" value="10"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/graphs/plot', {expr: document.getElementById('pl_expr').value, expr2: document.getElementById('pl_expr2').value, x_min: document.getElementById('pl_min').value, x_max: document.getElementById('pl_max').value}, 'pl_out')">Plot</button>
+  <div id="pl_out"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+{% endblock %}
