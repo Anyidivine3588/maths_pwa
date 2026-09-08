@@ -3,6 +3,7 @@ Step-by-step maths solvers for WAEC/NECO topics, ported from the
 Tkinter desktop app (MathsAssistTk). Each function returns a dict:
     {"steps": [str, ...], "result": str, "ok": bool, "error": str or None}
 """
+import re
 import sympy as sp
 from sympy.parsing.sympy_parser import (
     parse_expr, standard_transformations, implicit_multiplication_application,
@@ -13,9 +14,31 @@ x, y = sp.symbols("x y")
 TRANSFORMS = standard_transformations + (implicit_multiplication_application, convert_xor)
 
 
+def _normalize_expr(s):
+    """Make common mobile/typing variations parse correctly instead of failing:
+    curly/unicode minus signs, multiplication/division symbols, superscript
+    powers, and a stray capital X (only lowercase x is a defined symbol)."""
+    if s is None:
+        return s
+    s = str(s)
+    # Unicode dash/minus variants -> plain hyphen-minus
+    for ch in ("\u2012", "\u2013", "\u2014", "\u2015", "\u2212", "\u2010"):
+        s = s.replace(ch, "-")
+    # Multiplication / division symbols
+    s = s.replace("×", "*").replace("÷", "/")
+    # Superscript digits -> ^digit  (e.g. x² -> x^2)
+    superscripts = {"⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
+                     "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9"}
+    for sup, digit in superscripts.items():
+        s = s.replace(sup, f"^{digit}")
+    # A lone capital X is almost always meant to be the variable x
+    s = re.sub(r"(?<![A-Za-z])X(?![A-Za-z])", "x", s)
+    return s.strip()
+
+
 def _parse(expr_str, local_syms=None):
     syms = local_syms or {"x": x, "y": y}
-    return parse_expr(expr_str, local_dict=syms, transformations=TRANSFORMS)
+    return parse_expr(_normalize_expr(expr_str), local_dict=syms, transformations=TRANSFORMS)
 
 
 def _fail(msg):
@@ -26,10 +49,22 @@ def _ok(steps, result):
     return {"steps": steps, "result": result, "ok": True, "error": None}
 
 
+def _require(value, label):
+    """Raise a clear, friendly error if a required field was left blank."""
+    if value is None or str(value).strip() == "":
+        raise _MissingInput(f"Please enter a value for {label} before solving.")
+    return str(value).strip()
+
+
+class _MissingInput(Exception):
+    pass
+
+
 # ---------------------------------------------------------------- ALGEBRA --
 
 def solve_quadratic(expr_str):
     try:
+        expr_str = _require(expr_str, "the equation")
         expr = _parse(expr_str)
         eq = sp.Eq(expr, 0)
         poly = sp.Poly(expr, x)
@@ -52,12 +87,15 @@ def solve_quadratic(expr_str):
             steps.append(f"x = {r}  (≈ {sp.N(r, 4)})" if not r.is_real is False else f"x = {r}")
         result = ", ".join(f"x = {r}" for r in roots_s)
         return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not parse/solve: {e}")
 
 
 def solve_linear(expr_str):
     try:
+        expr_str = _require(expr_str, "the equation")
         if "=" in expr_str:
             lhs, rhs = expr_str.split("=", 1)
             eq = sp.Eq(_parse(lhs), _parse(rhs))
@@ -71,12 +109,17 @@ def solve_linear(expr_str):
             return _fail("No solution found — check the equation is linear in x.")
         steps.append(f"Isolate x: x = {sol[0]}")
         return _ok(steps, f"x = {sol[0]}")
+    except _MissingInput as e:
+        return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not parse/solve: {e}")
 
 
 def solve_simultaneous_linear(eq1_str, eq2_str):
     try:
+        eq1_str = _require(eq1_str, "Equation 1")
+        eq2_str = _require(eq2_str, "Equation 2")
+
         def to_eq(s):
             if "=" in s:
                 l, r = s.split("=", 1)
@@ -96,6 +139,8 @@ def solve_simultaneous_linear(eq1_str, eq2_str):
         xv, yv = list(sol)[0]
         steps.append(f"x = {xv}, y = {yv}")
         return _ok(steps, f"x = {xv}, y = {yv}")
+    except _MissingInput as e:
+        return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not parse/solve: {e}")
 
@@ -103,6 +148,9 @@ def solve_simultaneous_linear(eq1_str, eq2_str):
 def solve_simultaneous_mixed(linear_str, quad_str):
     """One linear, one quadratic — per WAEC/NECO exam requirement."""
     try:
+        linear_str = _require(linear_str, "the linear equation")
+        quad_str = _require(quad_str, "the quadratic equation")
+
         def to_eq(s):
             if "=" in s:
                 l, r = s.split("=", 1)
@@ -130,6 +178,8 @@ def solve_simultaneous_mixed(linear_str, quad_str):
             steps.append(f"x = {xv}, y = {yv}")
         result = "; ".join(f"(x={xv}, y={yv})" for xv, yv in pairs)
         return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not parse/solve: {e}")
 
@@ -222,12 +272,20 @@ def area_perimeter(shape, **vals):
         return _ok(steps, result_str)
     except KeyError as e:
         return _fail(f"Missing value: {e}")
+    except _MissingInput as e:
+        return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not compute: {e}")
 
 
 def pythagoras(mode, a=None, b=None, c=None):
     try:
+        if mode == "hypotenuse":
+            a = _require(a, "leg a")
+            b = _require(b, "leg b")
+        else:
+            a = _require(a, "the known leg")
+            c = _require(c, "the hypotenuse")
         a = sp.nsimplify(a) if a not in (None, "") else None
         b = sp.nsimplify(b) if b not in (None, "") else None
         c = sp.nsimplify(c) if c not in (None, "") else None
@@ -243,12 +301,18 @@ def pythagoras(mode, a=None, b=None, c=None):
             steps = [f"{label}² = c² − known² = {hyp}² − {known}² = {hyp**2 - known**2}",
                      f"{label} = √{hyp**2-known**2} ≈ {sp.N(leg,4)}"]
             return _ok(steps, f"{label} ≈ {sp.N(leg, 4)}")
+    except _MissingInput as e:
+        return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not compute: {e}")
 
 
 def coordinate_geometry(x1, y1, x2, y2):
     try:
+        x1 = _require(x1, "x₁")
+        y1 = _require(y1, "y₁")
+        x2 = _require(x2, "x₂")
+        y2 = _require(y2, "y₂")
         x1, y1, x2, y2 = [sp.nsimplify(v) for v in (x1, y1, x2, y2)]
         dist = sp.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         mid = (sp.Rational(x1 + x2, 1) / 2, sp.Rational(y1 + y2, 1) / 2)
@@ -266,6 +330,8 @@ def coordinate_geometry(x1, y1, x2, y2):
             steps.append("Gradient is undefined (vertical line); equation: x = " + str(x1))
             result = f"Distance ≈ {sp.N(dist,4)}, Midpoint = ({mid[0]}, {mid[1]}), vertical line x = {x1}"
         return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not compute: {e}")
 
@@ -274,6 +340,9 @@ def coordinate_geometry(x1, y1, x2, y2):
 
 def table_of_values(expr_str, x_min, x_max, step=1):
     try:
+        expr_str = _require(expr_str, "f(x)")
+        x_min = _require(x_min, "x min")
+        x_max = _require(x_max, "x max")
         expr = _parse(expr_str, {"x": x})
         xs = []
         val = sp.nsimplify(x_min)
@@ -292,6 +361,8 @@ def table_of_values(expr_str, x_min, x_max, step=1):
             rows.append({"x": str(xv), "y": str(yv)})
         return _ok([f"Substituting x = {r['x']} into y = {expr}: y = {r['y']}" for r in rows],
                     rows)
+    except _MissingInput as e:
+        return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not evaluate: {e}")
 
@@ -304,8 +375,19 @@ def plot_functions_png(expr_str, expr2_str=None, x_min=-10, x_max=10):
     import numpy as np
     import io, base64
 
-    x_min = float(x_min)
-    x_max = float(x_max)
+    try:
+        expr_str = _require(expr_str, "f(x)")
+        x_min = _require(x_min, "x min")
+        x_max = _require(x_max, "x max")
+        x_min = float(x_min)
+        x_max = float(x_max)
+        if x_min >= x_max:
+            return _fail("x min must be less than x max.")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except ValueError:
+        return _fail("x min and x max must be numbers.")
+
     fig, ax = plt.subplots(figsize=(6, 5))
     xs = np.linspace(x_min, x_max, 400)
 
