@@ -19,6 +19,33 @@ with app.app_context():
     db.init_db()
 
 
+@app.route("/db-status")
+def db_status():
+    """Temporary diagnostic page - tells us in plain English whether this
+    running server is actually using Supabase Postgres or the temporary
+    local file. Safe to leave up; shows no secrets."""
+    lines = []
+    url_present = bool(os.environ.get("DATABASE_URL"))
+    lines.append(f"DATABASE_URL environment variable detected on this server: {url_present}")
+
+    if url_present:
+        lines.append("This server SHOULD be using permanent Supabase storage.")
+    else:
+        lines.append("This server is using the TEMPORARY local file, which is wiped on every restart. "
+                      "This is almost certainly the cause of the login problem.")
+
+    try:
+        conn = db.get_db()
+        row = conn.execute("SELECT COUNT(*) AS n FROM students").fetchone()
+        count = row["n"] if row else "?"
+        conn.close()
+        lines.append(f"Connected successfully. Current student count in this database: {count}")
+    except Exception as e:
+        lines.append(f"Connection attempt FAILED with this error: {repr(e)}")
+
+    return "<pre>" + "\n".join(lines) + "</pre>"
+
+
 # --------------------------------------------------------------- helpers --
 
 def student_required(f):
@@ -379,6 +406,8 @@ def api_graphs(sub):
         res = solvers.plot_functions_png(
             data.get("expr", ""), data.get("expr2") or None,
             data.get("x_min", -10), data.get("x_max", 10),
+            data.get("y_min") or None, data.get("y_max") or None,
+            data.get("x_scale") or None, data.get("y_scale") or None,
         )
         summary = f'{data.get("expr","")} / {data.get("expr2","")}'
     else:
