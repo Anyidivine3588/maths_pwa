@@ -2,11 +2,19 @@ import sqlite3
 import os
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maths_assist.db")
+# In production (Render, etc.), set DATABASE_PATH to a file on a persistent
+# disk — e.g. "/var/data/maths_assist.db" — so student accounts and progress
+# survive redeploys and restarts. Without it, this falls back to a file next
+# to this script, which is fine for local development but NOT persistent on
+# most free hosting tiers (their filesystem resets on every restart).
+DB_PATH = os.environ.get(
+    "DATABASE_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "maths_assist.db"),
+)
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
