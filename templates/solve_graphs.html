@@ -27,11 +27,37 @@
   <input type="text" id="pl_expr" placeholder="x^2 - 2x - 3">
   <label>g(x) = (optional, for intersection)</label>
   <input type="text" id="pl_expr2" placeholder="x + 1">
+
+  <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">
+    x-axis range and scale
+  </p>
   <div class="two-col">
     <div><label>x min</label><input type="text" id="pl_min" value="-10"></div>
     <div><label>x max</label><input type="text" id="pl_max" value="10"></div>
   </div>
-  <button onclick="postSolve('/api/solve/graphs/plot', {expr: document.getElementById('pl_expr').value, expr2: document.getElementById('pl_expr2').value, x_min: document.getElementById('pl_min').value, x_max: document.getElementById('pl_max').value}, 'pl_out')">Plot</button>
+  <label>x scale (units per gridline — e.g. "2cm to 5 units" &rarr; enter 5)</label>
+  <input type="text" id="pl_xscale" placeholder="leave blank for automatic">
+
+  <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">
+    y-axis range and scale (optional — leave blank to fit automatically)
+  </p>
+  <div class="two-col">
+    <div><label>y min</label><input type="text" id="pl_ymin" placeholder="e.g. -10"></div>
+    <div><label>y max</label><input type="text" id="pl_ymax" placeholder="e.g. 10"></div>
+  </div>
+  <label>y scale (units per gridline — e.g. "2cm to 10 units" &rarr; enter 10)</label>
+  <input type="text" id="pl_yscale" placeholder="leave blank for automatic">
+
+  <button onclick="postSolve('/api/solve/graphs/plot', {
+      expr: document.getElementById('pl_expr').value,
+      expr2: document.getElementById('pl_expr2').value,
+      x_min: document.getElementById('pl_min').value,
+      x_max: document.getElementById('pl_max').value,
+      x_scale: document.getElementById('pl_xscale').value,
+      y_min: document.getElementById('pl_ymin').value,
+      y_max: document.getElementById('pl_ymax').value,
+      y_scale: document.getElementById('pl_yscale').value
+    }, 'pl_out')">Plot</button>
   <div id="pl_out"></div>
 </div>
 {% endblock %}
