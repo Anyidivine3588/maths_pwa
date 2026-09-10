@@ -407,11 +407,21 @@ def table_of_values(expr_str, x_min, x_max, step=1):
         return _fail(f"Could not evaluate: {e}")
 
 
-def plot_functions_png(expr_str, expr2_str=None, x_min=-10, x_max=10):
-    """Returns a base64-encoded PNG of the plotted function(s)."""
+def plot_functions_png(expr_str, expr2_str=None, x_min=-10, x_max=10,
+                        y_min=None, y_max=None, x_scale=None, y_scale=None):
+    """Returns a base64-encoded PNG of the plotted function(s).
+
+    x_scale / y_scale set the spacing between gridlines on each axis, so a
+    WAEC/NECO-style instruction like "scale of 2cm to 5 units on the x-axis
+    and 2cm to 10 units on the y-axis" can be reproduced directly: x_scale=5
+    draws a gridline every 5 units on x, y_scale=10 every 10 units on y.
+    y_min / y_max let the y-axis be set explicitly instead of auto-fitting,
+    matching how exam graph paper is laid out.
+    """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from matplotlib.ticker import MultipleLocator
     import numpy as np
     import io, base64
 
@@ -423,10 +433,34 @@ def plot_functions_png(expr_str, expr2_str=None, x_min=-10, x_max=10):
         x_max = float(x_max)
         if x_min >= x_max:
             return _fail("x min must be less than x max.")
+
+        if y_min not in (None, ""):
+            y_min = float(y_min)
+        else:
+            y_min = None
+        if y_max not in (None, ""):
+            y_max = float(y_max)
+        else:
+            y_max = None
+        if y_min is not None and y_max is not None and y_min >= y_max:
+            return _fail("y min must be less than y max.")
+
+        if x_scale not in (None, ""):
+            x_scale = float(x_scale)
+            if x_scale <= 0:
+                return _fail("x scale (gridline spacing) must be a positive number.")
+        else:
+            x_scale = None
+        if y_scale not in (None, ""):
+            y_scale = float(y_scale)
+            if y_scale <= 0:
+                return _fail("y scale (gridline spacing) must be a positive number.")
+        else:
+            y_scale = None
     except _MissingInput as e:
         return _fail(str(e))
     except ValueError:
-        return _fail("x min and x max must be numbers.")
+        return _fail("x min, x max, y min, y max, x scale and y scale must all be numbers.")
 
     fig, ax = plt.subplots(figsize=(6, 5))
     xs = np.linspace(x_min, x_max, 400)
@@ -458,6 +492,20 @@ def plot_functions_png(expr_str, expr2_str=None, x_min=-10, x_max=10):
             if pts:
                 ax.scatter(*zip(*pts), color="black", zorder=5, label="Intersection")
                 intersection_note = ", ".join(f"({px:.2f}, {py:.2f})" for px, py in pts)
+
+        ax.set_xlim(x_min, x_max)
+        if y_min is not None or y_max is not None:
+            # Only one of y_min/y_max given: keep matplotlib's auto value
+            # for the side that wasn't specified.
+            auto_lo, auto_hi = ax.get_ylim()
+            ax.set_ylim(y_min if y_min is not None else auto_lo,
+                        y_max if y_max is not None else auto_hi)
+
+        if x_scale:
+            ax.xaxis.set_major_locator(MultipleLocator(x_scale))
+        if y_scale:
+            ax.yaxis.set_major_locator(MultipleLocator(y_scale))
+
         ax.axhline(0, color="gray", linewidth=0.8)
         ax.axvline(0, color="gray", linewidth=0.8)
         ax.grid(True, linestyle="--", alpha=0.4)
