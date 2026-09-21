@@ -137,18 +137,95 @@ def solve_linear(expr_str):
     try:
         expr_str = _require(expr_str, "the equation")
         if "=" in expr_str:
-            lhs, rhs = expr_str.split("=", 1)
-            eq = sp.Eq(_parse(lhs), _parse(rhs))
+            lhs_s, rhs_s = expr_str.split("=", 1)
+            lhs_expr = _parse(lhs_s)
+            rhs_expr = _parse(rhs_s)
         else:
-            eq = sp.Eq(_parse(expr_str), 0)
-        steps = [f"Equation: {sp.sstr(eq.lhs)} = {sp.sstr(eq.rhs)}"]
-        moved = sp.simplify(eq.lhs - eq.rhs)
-        steps.append(f"Move everything to one side: {moved} = 0")
-        sol = sp.solve(sp.Eq(moved, 0), x)
-        if not sol:
-            return _fail("No solution found -- check the equation is linear in x.")
-        steps.append(f"Isolate x: x = {sol[0]}")
-        return _ok(steps, f"x = {sol[0]}")
+            lhs_expr = _parse(expr_str)
+            rhs_expr = sp.Integer(0)
+
+        combined = sp.expand(lhs_expr - rhs_expr)
+        poly = sp.Poly(combined, x)
+        if poly.degree() > 1:
+            return _fail("That isn't linear in x (highest power of x must be 1).")
+        if poly.degree() < 1:
+            return _fail("There's no x term to solve for -- check the equation.")
+
+        lhs_terms = sp.expand(lhs_expr).as_coefficients_dict()
+        rhs_terms = sp.expand(rhs_expr).as_coefficients_dict()
+        a_l = lhs_terms.get(x, sp.Integer(0))
+        b_l = lhs_terms.get(sp.Integer(1), sp.Integer(0))
+        a_r = rhs_terms.get(x, sp.Integer(0))
+        b_r = rhs_terms.get(sp.Integer(1), sp.Integer(0))
+
+        def fmt_x_term(coef):
+            if coef == 1:
+                return "x"
+            if coef == -1:
+                return "-x"
+            if getattr(coef, "q", 1) != 1:
+                return f"({coef})x"
+            return f"{coef}x"
+
+        def join_terms(parts):
+            """parts: list of display strings for terms already carrying their
+            own sign (e.g. '6x', '-2x'). Joins with proper +/- spacing."""
+            if not parts:
+                return "0"
+            out = parts[0]
+            for p in parts[1:]:
+                if p.startswith("-"):
+                    out += f" - {p[1:]}"
+                else:
+                    out += f" + {p}"
+            return out
+
+        def fmt_eq_side(expr):
+            return sp.sstr(expr).replace("*x", "x").replace("* x", "x")
+
+        steps = [f"Equation: {fmt_eq_side(lhs_expr)} = {fmt_eq_side(rhs_expr)}"]
+
+        # Collect like terms: x-terms to the left, numbers to the right.
+        # Moving a term to the other side of "=" flips its sign.
+        left_parts = [fmt_x_term(a_l)]
+        if a_r != 0:
+            left_parts.append(fmt_x_term(-a_r))
+        right_parts = [str(b_r)] if b_r != 0 or b_l == 0 else []
+        if b_l != 0:
+            right_parts.append(str(-b_l))
+        if not right_parts:
+            right_parts = ["0"]
+
+        if a_r != 0 or b_l != 0:
+            steps.append("Collect like terms (x-terms on the left, numbers on the right; "
+                          "a term's sign flips when it crosses the '='):")
+            new_b_preview = sp.simplify(b_r - b_l)
+            steps.append(f"{join_terms(left_parts)} = {join_terms(right_parts)} = {new_b_preview}")
+        else:
+            steps.append(f"Collect like terms: {fmt_x_term(a_l)} = {b_r}")
+
+        new_a = sp.simplify(a_l - a_r)
+        new_b = sp.simplify(b_r - b_l)
+
+        if new_a == 0:
+            return _fail("No solution -- the x terms cancel out completely.")
+
+        sol = sp.nsimplify(sp.simplify(new_b / new_a))
+        if new_a != 1:
+            if new_a == -1:
+                steps.append(f"Multiply both sides by -1 (to make the x-term positive): x = -({new_b}) = {sol}")
+            elif getattr(new_a, "q", 1) != 1:
+                recip = 1 / new_a
+                steps.append(f"Make x the subject (divide both sides by ({new_a}), same as "
+                              f"multiplying by {recip}): x = {new_b} \u00d7 {recip}")
+            else:
+                divisor_str = f"({new_a})" if new_a < 0 else str(new_a)
+                steps.append(f"Make x the subject: {fmt_x_term(new_a)}/{divisor_str} = {new_b}/{divisor_str}")
+        if not sol.is_integer:
+            steps.append(f"x = {_mathstr(sol)}  (~= {sp.N(sol, 4)})")
+        else:
+            steps.append(f"x = {sol}")
+        return _ok(steps, f"x = {_mathstr(sol)}")
     except _MissingInput as e:
         return _fail(str(e))
     except Exception as e:
@@ -167,18 +244,96 @@ def solve_simultaneous_linear(eq1_str, eq2_str):
             return sp.Eq(_parse(s), 0)
 
         eq1, eq2 = to_eq(eq1_str), to_eq(eq2_str)
+
+        def coeffs(eq):
+            d = sp.expand(eq.lhs - eq.rhs).as_coefficients_dict()
+            a = d.get(x, sp.Integer(0))
+            b = d.get(y, sp.Integer(0))
+            c = sp.expand(eq.rhs - (eq.lhs - a * x - b * y)).as_coefficients_dict().get(sp.Integer(1), sp.Integer(0))
+            # c = the constant that ends up on the right when written as a*x + b*y = c
+            c = sp.simplify(-(d.get(sp.Integer(1), sp.Integer(0))))
+            return a, b, c
+
+        a1, b1, c1 = coeffs(eq1)
+        a2, b2, c2 = coeffs(eq2)
+
         steps = [
             "Equations:",
-            f"  (1) {sp.sstr(eq1.lhs)} = {sp.sstr(eq1.rhs)}",
-            f"  (2) {sp.sstr(eq2.lhs)} = {sp.sstr(eq2.rhs)}",
-            "Using elimination/substitution (sympy linsolve):",
+            f"  (1) {a1}x + {b1}y = {c1}",
+            f"  (2) {a2}x + {b2}y = {c2}",
         ]
-        sol = sp.linsolve([eq1, eq2], x, y)
-        if not sol:
-            return _fail("No unique solution -- lines may be parallel or identical.")
-        xv, yv = list(sol)[0]
-        steps.append(f"x = {xv}, y = {yv}")
-        return _ok(steps, f"x = {xv}, y = {yv}")
+
+        # Eliminate x by default; if x is missing from one equation, eliminate
+        # y instead (swap the roles of the two variables in the logic below).
+        eliminate_y_instead = (a1 == 0 or a2 == 0)
+        if eliminate_y_instead:
+            p1, q1, p2, q2 = b1, a1, b2, a2  # p = coeff of variable we DO eliminate, q = the other
+            elim_name, keep_name = "y", "x"
+        else:
+            p1, q1, p2, q2 = a1, b1, a2, b2
+            elim_name, keep_name = "x", "y"
+
+        if p1 == 0 or p2 == 0:
+            return _fail(f"Can't eliminate {elim_name} -- it's missing from one of the equations "
+                         "in a way this solver doesn't handle. Please check the equations.")
+
+        g = sp.gcd(p1, p2)
+        k1 = sp.simplify(p2 / g)
+        k2 = sp.simplify(p1 / g)
+
+        steps.append(f"To eliminate {elim_name}, multiply equation (1) by {k1} and "
+                      f"equation (2) by {k2}, so the {elim_name}-coefficients match:")
+
+        na1, nb1, nc1 = sp.simplify(a1 * k1), sp.simplify(b1 * k1), sp.simplify(c1 * k1)
+        na2, nb2, nc2 = sp.simplify(a2 * k2), sp.simplify(b2 * k2), sp.simplify(c2 * k2)
+        steps.append(f"  (1) x {k1}: {na1}x + {nb1}y = {nc1}")
+        steps.append(f"  (2) x {k2}: {na2}x + {nb2}y = {nc2}")
+
+        steps.append(f"Since the {elim_name}-coefficients now match, subtract equation (1) "
+                      f"from equation (2) to eliminate {elim_name}:")
+
+        if eliminate_y_instead:
+            other_new1, other_new2, const_new1, const_new2 = na1, na2, nc1, nc2
+        else:
+            other_new1, other_new2, const_new1, const_new2 = nb1, nb2, nc1, nc2
+
+        diff_other = sp.simplify(other_new2 - other_new1)
+        diff_const = sp.simplify(const_new2 - const_new1)
+        other_label = "x" if eliminate_y_instead else "y"
+        steps.append(f"({other_new2} - {other_new1}){other_label} = {const_new2} - {const_new1}")
+        steps.append(f"{diff_other}{other_label} = {diff_const}")
+
+        if diff_other == 0:
+            if diff_const == 0:
+                return _fail("Infinitely many solutions -- the two equations represent the same line.")
+            return _fail("No solution -- the two lines are parallel (never meet).")
+
+        keep_val = sp.nsimplify(sp.simplify(diff_const / diff_other))
+        raw_frac = f"{diff_const}/{diff_other}"
+        if _mathstr(keep_val) == raw_frac:
+            steps.append(f"{keep_name} = {raw_frac}")
+        else:
+            steps.append(f"{keep_name} = {raw_frac} = {_mathstr(keep_val)}")
+
+        steps.append(f"Substitute {keep_name} = {_mathstr(keep_val)} back into equation (1) to find {elim_name}:")
+        if eliminate_y_instead:
+            # keep_name is x; substitute into a1*x + b1*y = c1 to find y
+            steps.append(f"{a1}({_mathstr(keep_val)}) + {b1}y = {c1}")
+            rhs_after = sp.simplify(c1 - a1 * keep_val)
+            steps.append(f"{b1}y = {rhs_after}")
+            elim_val = sp.nsimplify(sp.simplify(rhs_after / b1))
+            xv, yv = keep_val, elim_val
+        else:
+            # keep_name is y; substitute into a1*x + b1*y = c1 to find x
+            steps.append(f"{a1}x + {b1}({_mathstr(keep_val)}) = {c1}")
+            rhs_after = sp.simplify(c1 - b1 * keep_val)
+            steps.append(f"{a1}x = {rhs_after}")
+            elim_val = sp.nsimplify(sp.simplify(rhs_after / a1))
+            xv, yv = elim_val, keep_val
+
+        steps.append(f"{elim_name} = {_mathstr(elim_val)}")
+        steps.append(f"x = {_mathstr(xv)}, y = {_mathstr(yv)}")
+        return _ok(steps, f"x = {_mathstr(xv)}, y = {_mathstr(yv)}")
     except _MissingInput as e:
         return _fail(str(e))
     except Exception as e:
@@ -206,17 +361,19 @@ def solve_simultaneous_mixed(linear_str, quad_str):
         y_expr = sp.solve(eq_lin, y)
         if y_expr:
             y_expr = y_expr[0]
-            steps.append(f"From the linear equation, y = {y_expr}")
+            steps.append(f"Make y the subject of the linear equation: y = {_mathstr(y_expr)}")
             substituted = sp.Eq((eq_quad.lhs - eq_quad.rhs).subs(y, y_expr), 0)
-            steps.append(f"Substitute into the quadratic: {sp.simplify(substituted.lhs)} = 0")
+            steps.append(f"Substitute this into the quadratic equation: {_mathstr(sp.simplify(substituted.lhs))} = 0")
             xs = sp.solve(substituted, x)
+            steps.append("Solve this quadratic for x, then substitute each x-value back "
+                          "into y = " + _mathstr(y_expr) + " to find the matching y-value:")
             pairs = [(xv, sp.simplify(y_expr.subs(x, xv))) for xv in xs]
         else:
             sol = sp.solve([eq_lin, eq_quad], [x, y])
             pairs = sol if isinstance(sol, list) else [sol]
         for xv, yv in pairs:
-            steps.append(f"x = {xv}, y = {yv}")
-        result = "; ".join(f"(x={xv}, y={yv})" for xv, yv in pairs)
+            steps.append(f"x = {_mathstr(xv)}, y = {_mathstr(yv)}")
+        result = "; ".join(f"(x={_mathstr(xv)}, y={_mathstr(yv)})" for xv, yv in pairs)
         return _ok(steps, result)
     except _MissingInput as e:
         return _fail(str(e))
