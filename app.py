@@ -28,6 +28,9 @@ def db_status():
     url_present = bool(os.environ.get("DATABASE_URL"))
     lines.append(f"DATABASE_URL environment variable detected on this server: {url_present}")
 
+    lines.append(f"TEACHER_SIGNUP_CODE environment variable detected on this server: {bool(os.environ.get('TEACHER_SIGNUP_CODE'))}")
+    lines.append(f"Currently active teacher signup code: {TEACHER_SIGNUP_CODE}")
+
     if url_present:
         lines.append("This server SHOULD be using permanent Supabase storage.")
     else:
