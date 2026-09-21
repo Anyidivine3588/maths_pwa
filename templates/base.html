@@ -18,6 +18,9 @@
       <a href="{{ url_for('solve_page', topic='algebra') }}">Algebra</a>
       <a href="{{ url_for('solve_page', topic='geometry') }}">Geometry</a>
       <a href="{{ url_for('solve_page', topic='graphs') }}">Graphs</a>
+      <a href="{{ url_for('solve_page', topic='sequences') }}">Sequences</a>
+      <a href="{{ url_for('solve_page', topic='sets') }}">Sets</a>
+      <a href="{{ url_for('solve_page', topic='trigonometry') }}">Trigonometry</a>
       <a href="{{ url_for('logout') }}">Log out</a>
     {% elif session.get('teacher_id') %}
       <a href="{{ url_for('teacher_dashboard') }}">Teacher Dashboard</a>

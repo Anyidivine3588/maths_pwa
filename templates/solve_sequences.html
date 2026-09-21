@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Sequences</h1>
+
+<div class="tabs">
+  <div class="tab active" data-tab="apnth" onclick="showTab('apnth')">AP: nth term</div>
+  <div class="tab" data-tab="apsum" onclick="showTab('apsum')">AP: sum</div>
+  <div class="tab" data-tab="gpnth" onclick="showTab('gpnth')">GP: nth term</div>
+  <div class="tab" data-tab="gpsum" onclick="showTab('gpsum')">GP: sum</div>
+  <div class="tab" data-tab="gpinf" onclick="showTab('gpinf')">GP: sum to infinity</div>
+</div>
+
+<div id="apnth" class="panel active card">
+  <h2>Arithmetic Progression — nth term</h2>
+  <p class="hint">Tn = a + (n - 1)d</p>
+  <div class="two-col">
+    <div><label>First term (a)</label><input type="text" id="apn_a" placeholder="3"></div>
+    <div><label>Common difference (d)</label><input type="text" id="apn_d" placeholder="5"></div>
+    <div><label>Term number (n)</label><input type="text" id="apn_n" placeholder="10"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/sequences/ap-nth', {a: document.getElementById('apn_a').value, d: document.getElementById('apn_d').value, n: document.getElementById('apn_n').value}, 'apn_out')">Solve</button>
+  <div id="apn_out"></div>
+</div>
+
+<div id="apsum" class="panel card">
+  <h2>Arithmetic Progression — sum of n terms</h2>
+  <p class="hint">Sn = (n/2)[2a + (n - 1)d]</p>
+  <div class="two-col">
+    <div><label>First term (a)</label><input type="text" id="aps_a" placeholder="3"></div>
+    <div><label>Common difference (d)</label><input type="text" id="aps_d" placeholder="5"></div>
+    <div><label>Number of terms (n)</label><input type="text" id="aps_n" placeholder="10"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/sequences/ap-sum', {a: document.getElementById('aps_a').value, d: document.getElementById('aps_d').value, n: document.getElementById('aps_n').value}, 'aps_out')">Solve</button>
+  <div id="aps_out"></div>
+</div>
+
+<div id="gpnth" class="panel card">
+  <h2>Geometric Progression — nth term</h2>
+  <p class="hint">Tn = a &times; r^(n-1)</p>
+  <div class="two-col">
+    <div><label>First term (a)</label><input type="text" id="gpn_a" placeholder="2"></div>
+    <div><label>Common ratio (r)</label><input type="text" id="gpn_r" placeholder="3"></div>
+    <div><label>Term number (n)</label><input type="text" id="gpn_n" placeholder="5"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/sequences/gp-nth', {a: document.getElementById('gpn_a').value, r: document.getElementById('gpn_r').value, n: document.getElementById('gpn_n').value}, 'gpn_out')">Solve</button>
+  <div id="gpn_out"></div>
+</div>
+
+<div id="gpsum" class="panel card">
+  <h2>Geometric Progression — sum of n terms</h2>
+  <p class="hint">Sn = a(r^n - 1)/(r - 1)</p>
+  <div class="two-col">
+    <div><label>First term (a)</label><input type="text" id="gps_a" placeholder="2"></div>
+    <div><label>Common ratio (r)</label><input type="text" id="gps_r" placeholder="3"></div>
+    <div><label>Number of terms (n)</label><input type="text" id="gps_n" placeholder="5"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/sequences/gp-sum', {a: document.getElementById('gps_a').value, r: document.getElementById('gps_r').value, n: document.getElementById('gps_n').value}, 'gps_out')">Solve</button>
+  <div id="gps_out"></div>
+</div>
+
+<div id="gpinf" class="panel card">
+  <h2>Geometric Progression — sum to infinity</h2>
+  <p class="hint">S&infin; = a / (1 - r), valid only when -1 &lt; r &lt; 1</p>
+  <div class="two-col">
+    <div><label>First term (a)</label><input type="text" id="gpi_a" placeholder="16"></div>
+    <div><label>Common ratio (r)</label><input type="text" id="gpi_r" placeholder="1/2"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/sequences/gp-sum-infinity', {a: document.getElementById('gpi_a').value, r: document.getElementById('gpi_r').value}, 'gpi_out')">Solve</button>
+  <div id="gpi_out"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+{% endblock %}

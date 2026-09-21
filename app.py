@@ -73,6 +73,9 @@ TOPIC_LABELS = {
     "algebra": "Algebra",
     "geometry": "Geometry",
     "graphs": "Graphs",
+    "sequences": "Sequences",
+    "sets": "Sets",
+    "trigonometry": "Trigonometry",
 }
 
 
@@ -417,6 +420,103 @@ def api_graphs(sub):
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
 
     db.log_attempt(sid, "graphs", sub, input_summary=summary, correct=None)
+    return jsonify(res)
+
+
+@app.route("/api/solve/sequences/<sub>", methods=["POST"])
+@student_required
+def api_sequences(sub):
+    data = request.get_json(force=True)
+    sid = session["student_id"]
+
+    if sub == "ap-nth":
+        res = solvers.ap_nth_term(data.get("a"), data.get("d"), data.get("n"))
+        summary = f'a={data.get("a")}, d={data.get("d")}, n={data.get("n")}'
+    elif sub == "ap-sum":
+        res = solvers.ap_sum(data.get("a"), data.get("d"), data.get("n"))
+        summary = f'a={data.get("a")}, d={data.get("d")}, n={data.get("n")}'
+    elif sub == "gp-nth":
+        res = solvers.gp_nth_term(data.get("a"), data.get("r"), data.get("n"))
+        summary = f'a={data.get("a")}, r={data.get("r")}, n={data.get("n")}'
+    elif sub == "gp-sum":
+        res = solvers.gp_sum(data.get("a"), data.get("r"), data.get("n"))
+        summary = f'a={data.get("a")}, r={data.get("r")}, n={data.get("n")}'
+    elif sub == "gp-sum-infinity":
+        res = solvers.gp_sum_infinity(data.get("a"), data.get("r"))
+        summary = f'a={data.get("a")}, r={data.get("r")}'
+    else:
+        return jsonify({"ok": False, "error": "Unknown solver."}), 400
+
+    db.log_attempt(sid, "sequences", sub, input_summary=summary, correct=None)
+    return jsonify(res)
+
+
+@app.route("/api/solve/sets/<sub>", methods=["POST"])
+@student_required
+def api_sets(sub):
+    data = request.get_json(force=True)
+    sid = session["student_id"]
+
+    if sub == "operations":
+        res = solvers.set_operations(data.get("set_a", ""), data.get("set_b", ""), data.get("universal") or None)
+        summary = f'A={data.get("set_a")}, B={data.get("set_b")}'
+    elif sub == "venn2":
+        res = solvers.venn_two_set(
+            n_u=data.get("n_u") or None, n_a=data.get("n_a") or None,
+            n_b=data.get("n_b") or None, n_both=data.get("n_both") or None,
+            n_neither=data.get("n_neither") or None,
+        )
+        summary = f'U={data.get("n_u")}, A={data.get("n_a")}, B={data.get("n_b")}, both={data.get("n_both")}, neither={data.get("n_neither")}'
+    elif sub == "venn3":
+        res = solvers.venn_three_set(
+            n_u=data.get("n_u") or None, n_a=data.get("n_a") or None,
+            n_b=data.get("n_b") or None, n_c=data.get("n_c") or None,
+            n_ab=data.get("n_ab") or None, n_ac=data.get("n_ac") or None,
+            n_bc=data.get("n_bc") or None, n_abc=data.get("n_abc") or None,
+        )
+        summary = "3-set Venn problem"
+    else:
+        return jsonify({"ok": False, "error": "Unknown solver."}), 400
+
+    db.log_attempt(sid, "sets", sub, input_summary=summary, correct=None)
+    return jsonify(res)
+
+
+@app.route("/api/solve/trigonometry/<sub>", methods=["POST"])
+@student_required
+def api_trigonometry(sub):
+    data = request.get_json(force=True)
+    sid = session["student_id"]
+
+    if sub == "right-triangle":
+        res = solvers.right_triangle(
+            opposite=data.get("opposite") or None, adjacent=data.get("adjacent") or None,
+            hypotenuse=data.get("hypotenuse") or None, angle=data.get("angle") or None,
+        )
+        summary = f'opp={data.get("opposite")}, adj={data.get("adjacent")}, hyp={data.get("hypotenuse")}, angle={data.get("angle")}'
+    elif sub == "sine-rule":
+        res = solvers.sine_rule(
+            a=data.get("a") or None, A=data.get("A") or None,
+            b=data.get("b") or None, B=data.get("B") or None,
+            c=data.get("c") or None, C=data.get("C") or None,
+        )
+        summary = "Sine rule"
+    elif sub == "cosine-rule":
+        res = solvers.cosine_rule(
+            a=data.get("a") or None, b=data.get("b") or None,
+            c=data.get("c") or None, C=data.get("C") or None,
+        )
+        summary = "Cosine rule"
+    elif sub == "elevation":
+        res = solvers.angle_of_elevation(
+            height=data.get("height") or None, distance=data.get("distance") or None,
+            angle=data.get("angle") or None,
+        )
+        summary = f'height={data.get("height")}, distance={data.get("distance")}, angle={data.get("angle")}'
+    else:
+        return jsonify({"ok": False, "error": "Unknown solver."}), 400
+
+    db.log_attempt(sid, "trigonometry", sub, input_summary=summary, correct=None)
     return jsonify(res)
 
 

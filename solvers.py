@@ -679,3 +679,537 @@ def plot_functions_png(expr_str, expr2_str=None, x_min=-10, x_max=10,
     except Exception as e:
         plt.close(fig)
         return _fail(f"Could not plot: {e}")
+
+
+# --------------------------------------------------------------- SEQUENCES --
+
+def ap_nth_term(a, d, n):
+    """Arithmetic Progression: nth term Tn = a + (n-1)d."""
+    try:
+        a = sp.nsimplify(_require(a, "first term (a)"))
+        d = sp.nsimplify(_require(d, "common difference (d)"))
+        n = sp.nsimplify(_require(n, "term number (n)"))
+        steps = [
+            "Formula for the nth term of an Arithmetic Progression (AP): Tn = a + (n - 1)d",
+            f"Substitute a = {a}, d = {d}, n = {n}:",
+            f"T{n} = {a} + ({n} - 1)({d})",
+        ]
+        tn = sp.simplify(a + (n - 1) * d)
+        steps.append(f"T{n} = {a} + ({n-1})({d})")
+        steps.append(f"T{n} = {_mathstr(tn)}")
+        return _ok(steps, f"T{n} = {_mathstr(tn)}")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def ap_sum(a, d, n):
+    """Arithmetic Progression: sum of first n terms, Sn = n/2 * (2a + (n-1)d)."""
+    try:
+        a = sp.nsimplify(_require(a, "first term (a)"))
+        d = sp.nsimplify(_require(d, "common difference (d)"))
+        n = sp.nsimplify(_require(n, "number of terms (n)"))
+        steps = [
+            "Formula for the sum of the first n terms of an AP: Sn = (n/2)[2a + (n - 1)d]",
+            f"Substitute a = {a}, d = {d}, n = {n}:",
+            f"S{n} = ({n}/2)[2({a}) + ({n} - 1)({d})]",
+        ]
+        inner = sp.simplify(2 * a + (n - 1) * d)
+        steps.append(f"S{n} = ({n}/2)[{2*a} + ({n-1})({d})]")
+        steps.append(f"S{n} = ({n}/2)({inner})")
+        sn = sp.simplify(sp.Rational(1, 2) * n * inner)
+        steps.append(f"S{n} = {_mathstr(sn)}")
+        return _ok(steps, f"S{n} = {_mathstr(sn)}")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def gp_nth_term(a, r, n):
+    """Geometric Progression: nth term Tn = a * r^(n-1)."""
+    try:
+        a = sp.nsimplify(_require(a, "first term (a)"))
+        r = sp.nsimplify(_require(r, "common ratio (r)"))
+        n = sp.nsimplify(_require(n, "term number (n)"))
+        steps = [
+            "Formula for the nth term of a Geometric Progression (GP): Tn = a x r^(n-1)",
+            f"Substitute a = {a}, r = {r}, n = {n}:",
+            f"T{n} = {a} x ({r})^({n} - 1)",
+            f"T{n} = {a} x ({r})^{n-1}",
+        ]
+        tn = sp.simplify(a * r ** (n - 1))
+        tn = sp.nsimplify(tn)
+        steps.append(f"T{n} = {_mathstr(tn)}")
+        return _ok(steps, f"T{n} = {_mathstr(tn)}")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def gp_sum(a, r, n):
+    """Geometric Progression: sum of first n terms."""
+    try:
+        a = sp.nsimplify(_require(a, "first term (a)"))
+        r = sp.nsimplify(_require(r, "common ratio (r)"))
+        n = sp.nsimplify(_require(n, "number of terms (n)"))
+        if r == 1:
+            sn = sp.simplify(a * n)
+            steps = [
+                "Since r = 1, every term equals a, so Sn = n x a",
+                f"S{n} = {n} x {a} = {_mathstr(sn)}",
+            ]
+            return _ok(steps, f"S{n} = {_mathstr(sn)}")
+
+        if abs(r) > 1:
+            steps = [
+                "Since |r| > 1, use: Sn = a(r^n - 1) / (r - 1)",
+                f"Substitute a = {a}, r = {r}, n = {n}:",
+                f"S{n} = {a}(({r})^{n} - 1) / ({r} - 1)",
+            ]
+            rn = sp.simplify(r ** n)
+            steps.append(f"({r})^{n} = {rn}")
+            sn = sp.simplify(a * (rn - 1) / (r - 1))
+        else:
+            steps = [
+                "Since |r| < 1, use: Sn = a(1 - r^n) / (1 - r)",
+                f"Substitute a = {a}, r = {r}, n = {n}:",
+                f"S{n} = {a}(1 - ({r})^{n}) / (1 - {r})",
+            ]
+            rn = sp.simplify(r ** n)
+            steps.append(f"({r})^{n} = {rn}")
+            sn = sp.simplify(a * (1 - rn) / (1 - r))
+
+        sn = sp.nsimplify(sn)
+        steps.append(f"S{n} = {_mathstr(sn)}")
+        if not sn.is_integer:
+            steps.append(f"S{n} \u2248 {sp.N(sn, 6)}")
+        return _ok(steps, f"S{n} = {_mathstr(sn)}")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def gp_sum_infinity(a, r):
+    """Geometric Progression: sum to infinity, S_inf = a / (1 - r), valid only for |r| < 1."""
+    try:
+        a = sp.nsimplify(_require(a, "first term (a)"))
+        r = sp.nsimplify(_require(r, "common ratio (r)"))
+        if abs(r) >= 1:
+            return _fail("Sum to infinity only exists when -1 < r < 1 (the terms must keep "
+                          f"shrinking). Here r = {r}, so this series does not converge.")
+        steps = [
+            "Since -1 < r < 1, the sum to infinity is: S_inf = a / (1 - r)",
+            f"Substitute a = {a}, r = {r}:",
+            f"S_inf = {a} / (1 - {r})",
+        ]
+        denom = sp.simplify(1 - r)
+        s_inf = sp.nsimplify(sp.simplify(a / denom))
+        denom_str = f"({denom})" if denom < 0 or getattr(denom, "q", 1) != 1 else str(denom)
+        steps.append(f"S_inf = {a} / {denom_str}")
+        steps.append(f"S_inf = {_mathstr(s_inf)}")
+        return _ok(steps, f"S_inf = {_mathstr(s_inf)}")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+# -------------------------------------------------------------------- SETS --
+
+def _parse_set(s, label):
+    """Parse a comma/space separated list like '1,2,3' or 'a,b,c' into a set of strings."""
+    s = _require(s, label)
+    s = s.strip()
+    if s.startswith("{") and s.endswith("}"):
+        s = s[1:-1]
+    parts = [p.strip() for p in re.split(r"[,\s]+", s) if p.strip() != ""]
+    return set(parts), parts  # set (for ops) and ordered list (for readable display)
+
+
+def set_operations(set_a_str, set_b_str, universal_str=None):
+    """Union, intersection, differences, and (if a universal set is given) complements."""
+    try:
+        A, a_order = _parse_set(set_a_str, "Set A")
+        B, b_order = _parse_set(set_b_str, "Set B")
+        steps = [f"A = {{{', '.join(a_order)}}}", f"B = {{{', '.join(b_order)}}}"]
+
+        def show(label_expr, s):
+            ordered = sorted(s, key=lambda v: (len(v), v))
+            return f"{label_expr} = {{{', '.join(ordered) if ordered else ''}}}" + (
+                "  (the empty set)" if not ordered else "")
+
+        union = A | B
+        inter = A & B
+        a_only = A - B
+        b_only = B - A
+
+        steps.append("Union (elements in A or B or both):")
+        steps.append(show("A \u222a B", union))
+        steps.append("Intersection (elements in both A and B):")
+        steps.append(show("A \u2229 B", inter))
+        steps.append("A only (in A but not B):")
+        steps.append(show("A - B", a_only))
+        steps.append("B only (in B but not A):")
+        steps.append(show("B - A", b_only))
+
+        result_lines = [
+            f"A \u222a B = {{{', '.join(sorted(union, key=lambda v: (len(v), v)))}}}",
+            f"A \u2229 B = {{{', '.join(sorted(inter, key=lambda v: (len(v), v)))}}}",
+        ]
+
+        if universal_str not in (None, ""):
+            U, u_order = _parse_set(universal_str, "the universal set")
+            steps.append(f"U = {{{', '.join(u_order)}}}")
+            a_comp = U - A
+            b_comp = U - B
+            steps.append("Complement of A (in U but not in A):")
+            steps.append(show("A'", a_comp))
+            steps.append("Complement of B (in U but not in B):")
+            steps.append(show("B'", b_comp))
+            result_lines.append(f"A' = {{{', '.join(sorted(a_comp, key=lambda v: (len(v), v)))}}}")
+            result_lines.append(f"B' = {{{', '.join(sorted(b_comp, key=lambda v: (len(v), v)))}}}")
+
+        return _ok(steps, "; ".join(result_lines))
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def venn_two_set(n_u=None, n_a=None, n_b=None, n_both=None, n_neither=None):
+    """2-set Venn diagram word problem. Exactly one of the five quantities
+    should be left blank; the others are used to solve for it via
+    inclusion-exclusion, then the full breakdown is shown."""
+    try:
+        vals = {"n_u": n_u, "n_a": n_a, "n_b": n_b, "n_both": n_both, "n_neither": n_neither}
+        labels = {"n_u": "n(U) - total", "n_a": "n(A)", "n_b": "n(B)",
+                  "n_both": "n(A and B) - both", "n_neither": "n(neither)"}
+        known = {k: sp.nsimplify(v) for k, v in vals.items() if v not in (None, "")}
+        missing = [k for k, v in vals.items() if v in (None, "")]
+        if len(missing) == 0:
+            missing_key = None
+        elif len(missing) == 1:
+            missing_key = missing[0]
+        else:
+            return _fail("Please leave exactly ONE of the five values blank -- that's the one "
+                         "this solver will work out for you.")
+
+        U, Av, Bv, Both, Neither = sp.symbols("U A B Both Neither")
+        symmap = {"n_u": U, "n_a": Av, "n_b": Bv, "n_both": Both, "n_neither": Neither}
+
+        steps = ["Using: n(A \u222a B) = n(A) + n(B) - n(A and B), and n(U) = n(A \u222a B) + n(neither)"]
+
+        if missing_key:
+            eq1 = sp.Eq(symmap["n_u"] - symmap["n_neither"], symmap["n_a"] + symmap["n_b"] - symmap["n_both"])
+            subs = {symmap[k]: v for k, v in known.items()}
+            eq1_sub = eq1.subs(subs)
+            steps.append(f"We're missing {labels[missing_key]}, so solve for it from the others:")
+            sol = sp.solve(eq1_sub, symmap[missing_key])
+            if not sol:
+                return _fail("Could not solve for the missing value with the numbers given -- "
+                             "please check they're consistent.")
+            missing_val = sp.simplify(sol[0])
+            steps.append(f"{labels[missing_key]} = {_mathstr(missing_val)}")
+            known[missing_key] = missing_val
+
+        n_u_v, n_a_v, n_b_v, n_both_v = known["n_u"], known["n_a"], known["n_b"], known["n_both"]
+        n_neither_v = known["n_neither"]
+        a_only = sp.simplify(n_a_v - n_both_v)
+        b_only = sp.simplify(n_b_v - n_both_v)
+        union = sp.simplify(n_a_v + n_b_v - n_both_v)
+
+        steps.append(f"Only A (A but not B): n(A) - n(A and B) = {n_a_v} - {n_both_v} = {a_only}")
+        steps.append(f"Only B (B but not A): n(B) - n(A and B) = {n_b_v} - {n_both_v} = {b_only}")
+        steps.append(f"n(A \u222a B) = {n_a_v} + {n_b_v} - {n_both_v} = {union}")
+        steps.append(f"Check: n(U) = n(A \u222a B) + n(neither) = {union} + {n_neither_v} = {sp.simplify(union+n_neither_v)}")
+
+        result = (f"n(U)={n_u_v}, n(A)={n_a_v}, n(B)={n_b_v}, both={n_both_v}, "
+                  f"only A={a_only}, only B={b_only}, neither={n_neither_v}")
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def venn_three_set(n_u=None, n_a=None, n_b=None, n_c=None,
+                    n_ab=None, n_ac=None, n_bc=None, n_abc=None):
+    """3-set Venn diagram word problem, using inclusion-exclusion.
+    n_ab/n_ac/n_bc = number in each PAIR of sets (including the ones also in
+    the third set); n_abc = number in all three. Exactly one value blank."""
+    try:
+        vals = {"n_u": n_u, "n_a": n_a, "n_b": n_b, "n_c": n_c,
+                "n_ab": n_ab, "n_ac": n_ac, "n_bc": n_bc, "n_abc": n_abc}
+        labels = {"n_u": "n(U)", "n_a": "n(A)", "n_b": "n(B)", "n_c": "n(C)",
+                  "n_ab": "n(A and B)", "n_ac": "n(A and C)", "n_bc": "n(B and C)",
+                  "n_abc": "n(A and B and C)"}
+        known = {k: sp.nsimplify(v) for k, v in vals.items() if v not in (None, "")}
+        missing = [k for k, v in vals.items() if v in (None, "")]
+        if len(missing) != 1:
+            return _fail("Please leave exactly ONE of the eight values blank -- that's the one "
+                         "this solver will work out for you.")
+        missing_key = missing[0]
+
+        syms = {k: sp.Symbol(k) for k in vals}
+        union_expr = (syms["n_a"] + syms["n_b"] + syms["n_c"]
+                      - syms["n_ab"] - syms["n_ac"] - syms["n_bc"] + syms["n_abc"])
+        eq = sp.Eq(syms["n_u"], union_expr)
+
+        steps = ["Using: n(A \u222a B \u222a C) = n(A)+n(B)+n(C) - n(A and B) - n(A and C) - "
+                 "n(B and C) + n(A and B and C), and this equals n(U) "
+                 "(assuming everyone in U is in at least one of A, B, C):"]
+        subs = {syms[k]: v for k, v in known.items()}
+        eq_sub = eq.subs(subs)
+        steps.append(f"We're missing {labels[missing_key]}, so solve for it from the rest:")
+        sol = sp.solve(eq_sub, syms[missing_key])
+        if not sol:
+            return _fail("Could not solve for the missing value -- please check the numbers given.")
+        missing_val = sp.simplify(sol[0])
+        steps.append(f"{labels[missing_key]} = {_mathstr(missing_val)}")
+        known[missing_key] = missing_val
+
+        only_a = sp.simplify(known["n_a"] - known["n_ab"] - known["n_ac"] + known["n_abc"])
+        only_b = sp.simplify(known["n_b"] - known["n_ab"] - known["n_bc"] + known["n_abc"])
+        only_c = sp.simplify(known["n_c"] - known["n_ac"] - known["n_bc"] + known["n_abc"])
+        steps.append(f"Only A: n(A) - n(A and B) - n(A and C) + n(A and B and C) = {only_a}")
+        steps.append(f"Only B: n(B) - n(A and B) - n(B and C) + n(A and B and C) = {only_b}")
+        steps.append(f"Only C: n(C) - n(A and C) - n(B and C) + n(A and B and C) = {only_c}")
+
+        result = (f"n(U)={known['n_u']}, only A={only_a}, only B={only_b}, only C={only_c}, "
+                  f"n(A and B and C)={known['n_abc']}")
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+# ------------------------------------------------------------- TRIGONOMETRY --
+
+def _deg_sin(deg):
+    return sp.sin(sp.rad(deg))
+
+
+def _deg_cos(deg):
+    return sp.cos(sp.rad(deg))
+
+
+def _deg_tan(deg):
+    return sp.tan(sp.rad(deg))
+
+
+def right_triangle(opposite=None, adjacent=None, hypotenuse=None, angle=None):
+    """Solve a right-angled triangle given exactly two of the four values
+    (opposite, adjacent, hypotenuse, angle in degrees) using SOHCAHTOA."""
+    try:
+        vals = {"opposite": opposite, "adjacent": adjacent, "hypotenuse": hypotenuse, "angle": angle}
+        known = {k: v for k, v in vals.items() if v not in (None, "")}
+        if len(known) != 2:
+            return _fail("Please provide exactly TWO of: opposite, adjacent, hypotenuse, angle "
+                         "-- the solver will find the rest.")
+        known = {k: sp.nsimplify(v) for k, v in known.items()}
+
+        steps = ["SOHCAHTOA: sin = opposite/hypotenuse, cos = adjacent/hypotenuse, tan = opposite/adjacent"]
+        opp, adj, hyp, ang = (known.get("opposite"), known.get("adjacent"),
+                               known.get("hypotenuse"), known.get("angle"))
+
+        have = set(known.keys())
+        if have == {"opposite", "adjacent"}:
+            hyp = sp.sqrt(opp ** 2 + adj ** 2)
+            steps.append(f"Find the hypotenuse with Pythagoras: hyp = \u221a(opp^2 + adj^2) = "
+                          f"\u221a({opp}^2 + {adj}^2) = {_mathstr(sp.simplify(hyp))}")
+            hyp = sp.simplify(hyp)
+            ang = sp.deg(sp.atan(opp / adj))
+            steps.append(f"tan(angle) = opposite/adjacent = {opp}/{adj}")
+            steps.append(f"angle = tan^-1({opp}/{adj}) = {sp.N(ang, 4)} degrees")
+        elif have == {"opposite", "hypotenuse"}:
+            adj = sp.sqrt(hyp ** 2 - opp ** 2)
+            steps.append(f"Find the adjacent side with Pythagoras: adj = \u221a(hyp^2 - opp^2) = "
+                          f"\u221a({hyp}^2 - {opp}^2) = {_mathstr(sp.simplify(adj))}")
+            adj = sp.simplify(adj)
+            ang = sp.deg(sp.asin(opp / hyp))
+            steps.append(f"sin(angle) = opposite/hypotenuse = {opp}/{hyp}")
+            steps.append(f"angle = sin^-1({opp}/{hyp}) = {sp.N(ang, 4)} degrees")
+        elif have == {"adjacent", "hypotenuse"}:
+            opp = sp.sqrt(hyp ** 2 - adj ** 2)
+            steps.append(f"Find the opposite side with Pythagoras: opp = \u221a(hyp^2 - adj^2) = "
+                          f"\u221a({hyp}^2 - {adj}^2) = {_mathstr(sp.simplify(opp))}")
+            opp = sp.simplify(opp)
+            ang = sp.deg(sp.acos(adj / hyp))
+            steps.append(f"cos(angle) = adjacent/hypotenuse = {adj}/{hyp}")
+            steps.append(f"angle = cos^-1({adj}/{hyp}) = {sp.N(ang, 4)} degrees")
+        elif have == {"opposite", "angle"}:
+            hyp = sp.simplify(opp / _deg_sin(ang))
+            steps.append(f"sin({ang}) = opposite/hypotenuse, so hypotenuse = opposite/sin({ang})")
+            steps.append(f"hypotenuse = {opp}/sin({ang}) = {sp.N(hyp, 4)}")
+            adj = sp.simplify(opp / _deg_tan(ang))
+            steps.append(f"adjacent = opposite/tan({ang}) = {opp}/tan({ang}) = {sp.N(adj, 4)}")
+        elif have == {"adjacent", "angle"}:
+            hyp = sp.simplify(adj / _deg_cos(ang))
+            steps.append(f"cos({ang}) = adjacent/hypotenuse, so hypotenuse = adjacent/cos({ang})")
+            steps.append(f"hypotenuse = {adj}/cos({ang}) = {sp.N(hyp, 4)}")
+            opp = sp.simplify(adj * _deg_tan(ang))
+            steps.append(f"opposite = adjacent x tan({ang}) = {adj} x tan({ang}) = {sp.N(opp, 4)}")
+        elif have == {"hypotenuse", "angle"}:
+            opp = sp.simplify(hyp * _deg_sin(ang))
+            steps.append(f"opposite = hypotenuse x sin({ang}) = {hyp} x sin({ang}) = {sp.N(opp, 4)}")
+            adj = sp.simplify(hyp * _deg_cos(ang))
+            steps.append(f"adjacent = hypotenuse x cos({ang}) = {hyp} x cos({ang}) = {sp.N(adj, 4)}")
+        else:
+            return _fail("That combination isn't supported -- please give exactly two of "
+                         "opposite, adjacent, hypotenuse, angle.")
+
+        def fmt_val(v):
+            v = sp.N(v, 4)
+            return str(v)
+
+        result = f"opposite \u2248 {fmt_val(opp)}, adjacent \u2248 {fmt_val(adj)}, hypotenuse \u2248 {fmt_val(hyp)}, angle \u2248 {fmt_val(ang)} degrees"
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def sine_rule(a=None, A=None, b=None, B=None, c=None, C=None):
+    """Sine rule: a/sin(A) = b/sin(B) = c/sin(C). Provide any 3 of the 6
+    values (a full side/angle pair plus one more value) to find the rest."""
+    try:
+        vals = {"a": a, "A": A, "b": b, "B": B, "c": c, "C": C}
+        known = {k: sp.nsimplify(v) for k, v in vals.items() if v not in (None, "")}
+        pairs = [("a", "A"), ("b", "B"), ("c", "C")]
+        full_pairs = [p for p in pairs if p[0] in known and p[1] in known]
+        if not full_pairs:
+            return _fail("Please provide at least one full side/opposite-angle pair "
+                         "(e.g. side a and angle A) plus one more known value.")
+        side_k, angle_k = full_pairs[0]
+        ratio = sp.simplify(known[side_k] / _deg_sin(known[angle_k]))
+        steps = [
+            "Sine rule: a/sin(A) = b/sin(B) = c/sin(C)",
+            f"Using the known pair {side_k} = {known[side_k]}, {angle_k} = {known[angle_k]} degrees:",
+            f"{side_k}/sin({angle_k}) = {known[side_k]}/sin({known[angle_k]}) = {sp.N(ratio, 5)}",
+        ]
+        for s_key, a_key in pairs:
+            if s_key == side_k:
+                continue
+            if s_key in known and a_key not in known:
+                # find the angle
+                sin_val = sp.simplify(known[s_key] / ratio)
+                if abs(sin_val) > 1:
+                    return _fail(f"No valid triangle -- sin({a_key}) would have to be {sp.N(sin_val,4)}, "
+                                 "which is impossible.")
+                ang = sp.deg(sp.asin(sin_val))
+                steps.append(f"sin({a_key}) = {s_key}/{ratio_str(ratio)} = {known[s_key]}/{sp.N(ratio,5)} = {sp.N(sin_val,4)}")
+                steps.append(f"{a_key} = sin^-1({sp.N(sin_val,4)}) = {sp.N(ang,4)} degrees")
+                known[a_key] = ang
+            elif a_key in known and s_key not in known:
+                # find the side
+                side_val = sp.simplify(_deg_sin(known[a_key]) * ratio)
+                steps.append(f"{s_key} = sin({a_key}) x {sp.N(ratio,5)} = {sp.N(side_val,4)}")
+                known[s_key] = side_val
+            elif s_key not in known and a_key not in known:
+                # find via angle sum if the other two angles are known
+                other_angles = [v for k, v in known.items() if k in ("A", "B", "C")]
+                if len(other_angles) == 2:
+                    third_angle = sp.simplify(180 - sum(other_angles))
+                    steps.append(f"{a_key} = 180 - (sum of the other two angles) = {sp.N(third_angle,4)} degrees")
+                    known[a_key] = third_angle
+                    side_val = sp.simplify(_deg_sin(known[a_key]) * ratio)
+                    steps.append(f"{s_key} = sin({a_key}) x {sp.N(ratio,5)} = {sp.N(side_val,4)}")
+                    known[s_key] = side_val
+
+        result_parts = []
+        for k in ("a", "A", "b", "B", "c", "C"):
+            if k in known:
+                v = sp.N(known[k], 4)
+                result_parts.append(f"{k}={v}{' deg' if k in ('A','B','C') else ''}")
+        return _ok(steps, ", ".join(result_parts))
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def ratio_str(r):
+    return str(sp.N(r, 5))
+
+
+def cosine_rule(a=None, b=None, c=None, C=None):
+    """Cosine rule. Two modes:
+    - Given all three sides a, b, c (C left blank): find angle C (opposite side c).
+    - Given two sides a, b and the included angle C: find the third side c."""
+    try:
+        vals = {"a": a, "b": b, "c": c, "C": C}
+        known = {k: sp.nsimplify(v) for k, v in vals.items() if v not in (None, "")}
+        steps = ["Cosine rule: c^2 = a^2 + b^2 - 2ab.cos(C)   (C is the angle between sides a and b, opposite side c)"]
+
+        if "a" in known and "b" in known and "c" in known and "C" not in known:
+            av, bv, cv = known["a"], known["b"], known["c"]
+            cosC = sp.simplify((av ** 2 + bv ** 2 - cv ** 2) / (2 * av * bv))
+            steps.append("Rearranged to find the angle: cos(C) = (a^2 + b^2 - c^2) / (2ab)")
+            steps.append(f"cos(C) = ({av}^2 + {bv}^2 - {cv}^2) / (2 x {av} x {bv})")
+            steps.append(f"cos(C) = {sp.N(cosC, 5)}")
+            if abs(cosC) > 1:
+                return _fail("These three side lengths can't form a real triangle "
+                             "(check the values entered).")
+            Cang = sp.deg(sp.acos(cosC))
+            steps.append(f"C = cos^-1({sp.N(cosC,5)}) = {sp.N(Cang,4)} degrees")
+            return _ok(steps, f"C \u2248 {sp.N(Cang,4)} degrees")
+
+        if "a" in known and "b" in known and "C" in known and "c" not in known:
+            av, bv, Cv = known["a"], known["b"], known["C"]
+            steps.append(f"Substitute a = {av}, b = {bv}, C = {Cv} degrees:")
+            steps.append(f"c^2 = {av}^2 + {bv}^2 - 2({av})({bv})cos({Cv})")
+            c2 = sp.simplify(av ** 2 + bv ** 2 - 2 * av * bv * _deg_cos(Cv))
+            steps.append(f"c^2 = {sp.N(c2, 5)}")
+            if c2 < 0:
+                return _fail("These values don't form a valid triangle (c^2 came out negative).")
+            cv = sp.sqrt(c2)
+            steps.append(f"c = \u221a({sp.N(c2,5)}) = {sp.N(cv, 5)}")
+            return _ok(steps, f"c \u2248 {sp.N(cv,5)}")
+
+        return _fail("Please provide either all three sides (a, b, c) to find angle C, "
+                     "or two sides and the included angle C to find side c.")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def angle_of_elevation(height=None, distance=None, angle=None):
+    """Angle of elevation/depression word problems: a right triangle with
+    'height' (opposite) and 'distance' (adjacent), connected by tan."""
+    try:
+        vals = {"height": height, "distance": distance, "angle": angle}
+        known = {k: v for k, v in vals.items() if v not in (None, "")}
+        if len(known) != 2:
+            return _fail("Please provide exactly TWO of: height, distance, angle.")
+        known = {k: sp.nsimplify(v) for k, v in known.items()}
+
+        steps = ["This forms a right triangle where tan(angle) = height / distance"]
+        if "height" in known and "distance" in known:
+            h, d = known["height"], known["distance"]
+            steps.append(f"tan(angle) = {h}/{d}")
+            ang = sp.deg(sp.atan(h / d))
+            steps.append(f"angle = tan^-1({h}/{d}) = {sp.N(ang,4)} degrees")
+            return _ok(steps, f"angle \u2248 {sp.N(ang,4)} degrees")
+        elif "height" in known and "angle" in known:
+            h, ang = known["height"], known["angle"]
+            steps.append(f"tan({ang}) = {h}/distance, so distance = {h}/tan({ang})")
+            d = sp.simplify(h / _deg_tan(ang))
+            steps.append(f"distance = {sp.N(d,4)}")
+            return _ok(steps, f"distance \u2248 {sp.N(d,4)}")
+        else:  # distance and angle
+            d, ang = known["distance"], known["angle"]
+            steps.append(f"tan({ang}) = height/{d}, so height = {d} x tan({ang})")
+            h = sp.simplify(d * _deg_tan(ang))
+            steps.append(f"height = {sp.N(h,4)}")
+            return _ok(steps, f"height \u2248 {sp.N(h,4)}")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")

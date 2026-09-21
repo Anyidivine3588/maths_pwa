@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Sets</h1>
+
+<div class="tabs">
+  <div class="tab active" data-tab="ops" onclick="showTab('ops')">Set operations</div>
+  <div class="tab" data-tab="venn2" onclick="showTab('venn2')">Venn diagram (2 sets)</div>
+  <div class="tab" data-tab="venn3" onclick="showTab('venn3')">Venn diagram (3 sets)</div>
+</div>
+
+<div id="ops" class="panel active card">
+  <h2>Set Operations</h2>
+  <p class="hint">List elements separated by commas, e.g. 1,2,3,4</p>
+  <div class="two-col">
+    <div><label>Set A</label><input type="text" id="op_a" placeholder="1,2,3,4"></div>
+    <div><label>Set B</label><input type="text" id="op_b" placeholder="3,4,5,6"></div>
+  </div>
+  <label>Universal set U (optional, needed for complements)</label>
+  <input type="text" id="op_u" placeholder="1,2,3,4,5,6,7,8">
+  <button onclick="postSolve('/api/solve/sets/operations', {set_a: document.getElementById('op_a').value, set_b: document.getElementById('op_b').value, universal: document.getElementById('op_u').value}, 'op_out')">Solve</button>
+  <div id="op_out"></div>
+</div>
+
+<div id="venn2" class="panel card">
+  <h2>Venn Diagram — 2 Sets</h2>
+  <p class="hint">Fill in any FOUR of the five values below and leave the one you're asked to
+     find blank — the solver will work it out, then show the full breakdown
+     (only A, only B, neither).</p>
+  <div class="two-col">
+    <div><label>n(U) — total</label><input type="text" id="v2_u" placeholder="50"></div>
+    <div><label>n(A)</label><input type="text" id="v2_a" placeholder="30"></div>
+    <div><label>n(B)</label><input type="text" id="v2_b" placeholder="25"></div>
+    <div><label>n(A and B) — both</label><input type="text" id="v2_both" placeholder="12"></div>
+    <div><label>n(neither)</label><input type="text" id="v2_neither" placeholder=""></div>
+  </div>
+  <button onclick="postSolve('/api/solve/sets/venn2', {n_u: document.getElementById('v2_u').value, n_a: document.getElementById('v2_a').value, n_b: document.getElementById('v2_b').value, n_both: document.getElementById('v2_both').value, n_neither: document.getElementById('v2_neither').value}, 'v2_out')">Solve</button>
+  <div id="v2_out"></div>
+</div>
+
+<div id="venn3" class="panel card">
+  <h2>Venn Diagram — 3 Sets</h2>
+  <p class="hint">Fill in SEVEN of the eight values below and leave the one you're asked to
+     find blank. n(A and B) etc. means everyone in both those sets (including anyone
+     also in the third set).</p>
+  <div class="two-col">
+    <div><label>n(U) — total</label><input type="text" id="v3_u" placeholder="100"></div>
+    <div><label>n(A)</label><input type="text" id="v3_a" placeholder="45"></div>
+    <div><label>n(B)</label><input type="text" id="v3_b" placeholder="50"></div>
+    <div><label>n(C)</label><input type="text" id="v3_c" placeholder="40"></div>
+    <div><label>n(A and B)</label><input type="text" id="v3_ab" placeholder="15"></div>
+    <div><label>n(A and C)</label><input type="text" id="v3_ac" placeholder="12"></div>
+    <div><label>n(B and C)</label><input type="text" id="v3_bc" placeholder="10"></div>
+    <div><label>n(A and B and C)</label><input type="text" id="v3_abc" placeholder=""></div>
+  </div>
+  <button onclick="postSolve('/api/solve/sets/venn3', {n_u: document.getElementById('v3_u').value, n_a: document.getElementById('v3_a').value, n_b: document.getElementById('v3_b').value, n_c: document.getElementById('v3_c').value, n_ab: document.getElementById('v3_ab').value, n_ac: document.getElementById('v3_ac').value, n_bc: document.getElementById('v3_bc').value, n_abc: document.getElementById('v3_abc').value}, 'v3_out')">Solve</button>
+  <div id="v3_out"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+{% endblock %}
