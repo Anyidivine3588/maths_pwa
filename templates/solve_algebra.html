@@ -3,18 +3,38 @@
 <h1>Algebra</h1>
 
 <div class="tabs">
-  <div class="tab active" data-tab="quad" onclick="showTab('quad')">Quadratic</div>
+  <div class="tab active" data-tab="quad" onclick="showTab('quad')">Quadratic (Formula)</div>
+  <div class="tab" data-tab="quadfact" onclick="showTab('quadfact')">Quadratic (Factorisation)</div>
+  <div class="tab" data-tab="quadcs" onclick="showTab('quadcs')">Quadratic (Completing the Square)</div>
   <div class="tab" data-tab="lin" onclick="showTab('lin')">Linear</div>
   <div class="tab" data-tab="simlin" onclick="showTab('simlin')">Simultaneous (linear)</div>
   <div class="tab" data-tab="simmix" onclick="showTab('simmix')">Simultaneous (linear + quadratic)</div>
 </div>
 
 <div id="quad" class="panel active card">
-  <h2>Quadratic Equation</h2>
+  <h2>Quadratic Equation — Formula Method</h2>
   <label>Equation (in x, set to 0), e.g. x^2 - 5x + 6</label>
   <input type="text" id="quad_expr" placeholder="x^2 - 5x + 6">
   <button onclick="postSolve('/api/solve/algebra/quadratic', {expr: document.getElementById('quad_expr').value}, 'quad_out')">Solve</button>
   <div id="quad_out"></div>
+</div>
+
+<div id="quadfact" class="panel card">
+  <h2>Quadratic Equation — Factorisation</h2>
+  <p class="hint">Works when the quadratic factorises nicely over whole numbers (splitting the
+     middle term). If it doesn't, try Completing the Square or the Formula method instead.</p>
+  <label>Equation (in x, set to 0), e.g. x^2 - 5x + 6</label>
+  <input type="text" id="qf_expr" placeholder="x^2 - 5x + 6">
+  <button onclick="postSolve('/api/solve/algebra/quadratic-factorisation', {expr: document.getElementById('qf_expr').value}, 'qf_out')">Solve</button>
+  <div id="qf_out"></div>
+</div>
+
+<div id="quadcs" class="panel card">
+  <h2>Quadratic Equation — Completing the Square</h2>
+  <label>Equation (in x, set to 0), e.g. x^2 - 5x + 6</label>
+  <input type="text" id="qcs_expr" placeholder="x^2 - 5x + 6">
+  <button onclick="postSolve('/api/solve/algebra/quadratic-completing-square', {expr: document.getElementById('qcs_expr').value}, 'qcs_out')">Solve</button>
+  <div id="qcs_out"></div>
 </div>
 
 <div id="lin" class="panel card">
