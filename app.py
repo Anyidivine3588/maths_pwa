@@ -357,6 +357,12 @@ def api_algebra(sub):
     if sub == "quadratic":
         res = solvers.solve_quadratic(data.get("expr", ""))
         summary = data.get("expr", "")
+    elif sub == "quadratic-factorisation":
+        res = solvers.solve_quadratic_factorisation(data.get("expr", ""))
+        summary = data.get("expr", "")
+    elif sub == "quadratic-completing-square":
+        res = solvers.solve_quadratic_completing_square(data.get("expr", ""))
+        summary = data.get("expr", "")
     elif sub == "linear":
         res = solvers.solve_linear(data.get("expr", ""))
         summary = data.get("expr", "")
@@ -429,21 +435,26 @@ def api_sequences(sub):
     data = request.get_json(force=True)
     sid = session["student_id"]
 
-    if sub == "ap-nth":
-        res = solvers.ap_nth_term(data.get("a"), data.get("d"), data.get("n"))
-        summary = f'a={data.get("a")}, d={data.get("d")}, n={data.get("n")}'
-    elif sub == "ap-sum":
-        res = solvers.ap_sum(data.get("a"), data.get("d"), data.get("n"))
-        summary = f'a={data.get("a")}, d={data.get("d")}, n={data.get("n")}'
-    elif sub == "gp-nth":
-        res = solvers.gp_nth_term(data.get("a"), data.get("r"), data.get("n"))
-        summary = f'a={data.get("a")}, r={data.get("r")}, n={data.get("n")}'
-    elif sub == "gp-sum":
-        res = solvers.gp_sum(data.get("a"), data.get("r"), data.get("n"))
-        summary = f'a={data.get("a")}, r={data.get("r")}, n={data.get("n")}'
+    if sub == "ap-solve":
+        res = solvers.ap_solve(data.get("a") or None, data.get("d") or None,
+                                data.get("n") or None, data.get("Tn") or None, data.get("Sn") or None)
+        summary = f'a={data.get("a")}, d={data.get("d")}, n={data.get("n")}, Tn={data.get("Tn")}, Sn={data.get("Sn")}'
+    elif sub == "ap-terms":
+        res = solvers.ap_list_terms(data.get("a"), data.get("d"), data.get("start"), data.get("end"))
+        summary = f'a={data.get("a")}, d={data.get("d")}, terms {data.get("start")}-{data.get("end")}'
+    elif sub == "gp-solve":
+        res = solvers.gp_solve(data.get("a") or None, data.get("r") or None,
+                                data.get("n") or None, data.get("Tn") or None, data.get("Sn") or None)
+        summary = f'a={data.get("a")}, r={data.get("r")}, n={data.get("n")}, Tn={data.get("Tn")}, Sn={data.get("Sn")}'
+    elif sub == "gp-terms":
+        res = solvers.gp_list_terms(data.get("a"), data.get("r"), data.get("start"), data.get("end"))
+        summary = f'a={data.get("a")}, r={data.get("r")}, terms {data.get("start")}-{data.get("end")}'
     elif sub == "gp-sum-infinity":
         res = solvers.gp_sum_infinity(data.get("a"), data.get("r"))
         summary = f'a={data.get("a")}, r={data.get("r")}'
+    elif sub == "general":
+        res = solvers.general_sequence(data.get("terms", ""), data.get("find_upto") or None)
+        summary = f'terms={data.get("terms")}'
     else:
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
 
@@ -467,6 +478,9 @@ def api_sets(sub):
             n_neither=data.get("n_neither") or None,
         )
         summary = f'U={data.get("n_u")}, A={data.get("n_a")}, B={data.get("n_b")}, both={data.get("n_both")}, neither={data.get("n_neither")}'
+    elif sub == "venn2-elements":
+        res = solvers.venn_two_set_elements(data.get("set_a", ""), data.get("set_b", ""), data.get("universal", ""))
+        summary = f'A={data.get("set_a")}, B={data.get("set_b")}, U={data.get("universal")}'
     elif sub == "venn3":
         res = solvers.venn_three_set(
             n_u=data.get("n_u") or None, n_a=data.get("n_a") or None,
@@ -475,6 +489,10 @@ def api_sets(sub):
             n_bc=data.get("n_bc") or None, n_abc=data.get("n_abc") or None,
         )
         summary = "3-set Venn problem"
+    elif sub == "venn3-elements":
+        res = solvers.venn_three_set_elements(data.get("set_a", ""), data.get("set_b", ""),
+                                               data.get("set_c", ""), data.get("universal", ""))
+        summary = "3-set Venn (elements) problem"
     else:
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
 

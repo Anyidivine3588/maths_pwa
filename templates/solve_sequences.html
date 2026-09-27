@@ -3,59 +3,68 @@
 <h1>Sequences</h1>
 
 <div class="tabs">
-  <div class="tab active" data-tab="apnth" onclick="showTab('apnth')">AP: nth term</div>
-  <div class="tab" data-tab="apsum" onclick="showTab('apsum')">AP: sum</div>
-  <div class="tab" data-tab="gpnth" onclick="showTab('gpnth')">GP: nth term</div>
-  <div class="tab" data-tab="gpsum" onclick="showTab('gpsum')">GP: sum</div>
+  <div class="tab active" data-tab="ap" onclick="showTab('ap')">Arithmetic Progression</div>
+  <div class="tab" data-tab="apterms" onclick="showTab('apterms')">AP: list terms</div>
+  <div class="tab" data-tab="gp" onclick="showTab('gp')">Geometric Progression</div>
+  <div class="tab" data-tab="gpterms" onclick="showTab('gpterms')">GP: list terms</div>
   <div class="tab" data-tab="gpinf" onclick="showTab('gpinf')">GP: sum to infinity</div>
+  <div class="tab" data-tab="series" onclick="showTab('series')">Series (find the pattern)</div>
 </div>
 
-<div id="apnth" class="panel active card">
-  <h2>Arithmetic Progression — nth term</h2>
-  <p class="hint">Tn = a + (n - 1)d</p>
+<div id="ap" class="panel active card">
+  <h2>Arithmetic Progression</h2>
+  <p class="hint">Tn = a + (n-1)d &nbsp;&middot;&nbsp; Sn = (n/2)[2a + (n-1)d]<br>
+     Fill in whatever you know, and leave blank whatever you want to find (you can find more
+     than one missing value at once, e.g. leave both Tn and Sn blank to get both).</p>
   <div class="two-col">
-    <div><label>First term (a)</label><input type="text" id="apn_a" placeholder="3"></div>
-    <div><label>Common difference (d)</label><input type="text" id="apn_d" placeholder="5"></div>
-    <div><label>Term number (n)</label><input type="text" id="apn_n" placeholder="10"></div>
+    <div><label>First term (a)</label><input type="text" id="ap_a" placeholder=""></div>
+    <div><label>Common difference (d)</label><input type="text" id="ap_d" placeholder=""></div>
+    <div><label>Term number (n)</label><input type="text" id="ap_n" placeholder=""></div>
+    <div><label>nth term (Tn)</label><input type="text" id="ap_Tn" placeholder=""></div>
+    <div><label>Sum of n terms (Sn)</label><input type="text" id="ap_Sn" placeholder=""></div>
   </div>
-  <button onclick="postSolve('/api/solve/sequences/ap-nth', {a: document.getElementById('apn_a').value, d: document.getElementById('apn_d').value, n: document.getElementById('apn_n').value}, 'apn_out')">Solve</button>
-  <div id="apn_out"></div>
+  <button onclick="postSolve('/api/solve/sequences/ap-solve', {a: document.getElementById('ap_a').value, d: document.getElementById('ap_d').value, n: document.getElementById('ap_n').value, Tn: document.getElementById('ap_Tn').value, Sn: document.getElementById('ap_Sn').value}, 'ap_out')">Solve</button>
+  <div id="ap_out"></div>
 </div>
 
-<div id="apsum" class="panel card">
-  <h2>Arithmetic Progression — sum of n terms</h2>
-  <p class="hint">Sn = (n/2)[2a + (n - 1)d]</p>
+<div id="apterms" class="panel card">
+  <h2>AP — List a range of terms</h2>
+  <p class="hint">e.g. "first five terms" = start 1, end 5. "Last five of a 20-term AP" = start 16, end 20.</p>
   <div class="two-col">
-    <div><label>First term (a)</label><input type="text" id="aps_a" placeholder="3"></div>
-    <div><label>Common difference (d)</label><input type="text" id="aps_d" placeholder="5"></div>
-    <div><label>Number of terms (n)</label><input type="text" id="aps_n" placeholder="10"></div>
+    <div><label>First term (a)</label><input type="text" id="apt_a" placeholder="3"></div>
+    <div><label>Common difference (d)</label><input type="text" id="apt_d" placeholder="5"></div>
+    <div><label>From term number</label><input type="text" id="apt_start" placeholder="1"></div>
+    <div><label>To term number</label><input type="text" id="apt_end" placeholder="5"></div>
   </div>
-  <button onclick="postSolve('/api/solve/sequences/ap-sum', {a: document.getElementById('aps_a').value, d: document.getElementById('aps_d').value, n: document.getElementById('aps_n').value}, 'aps_out')">Solve</button>
-  <div id="aps_out"></div>
+  <button onclick="postSolve('/api/solve/sequences/ap-terms', {a: document.getElementById('apt_a').value, d: document.getElementById('apt_d').value, start: document.getElementById('apt_start').value, end: document.getElementById('apt_end').value}, 'apt_out')">Solve</button>
+  <div id="apt_out"></div>
 </div>
 
-<div id="gpnth" class="panel card">
-  <h2>Geometric Progression — nth term</h2>
-  <p class="hint">Tn = a &times; r^(n-1)</p>
+<div id="gp" class="panel card">
+  <h2>Geometric Progression</h2>
+  <p class="hint">Tn = a &times; r^(n-1) &nbsp;&middot;&nbsp; Sn = a(r^n - 1)/(r - 1)<br>
+     Fill in whatever you know, and leave blank whatever you want to find.</p>
   <div class="two-col">
-    <div><label>First term (a)</label><input type="text" id="gpn_a" placeholder="2"></div>
-    <div><label>Common ratio (r)</label><input type="text" id="gpn_r" placeholder="3"></div>
-    <div><label>Term number (n)</label><input type="text" id="gpn_n" placeholder="5"></div>
+    <div><label>First term (a)</label><input type="text" id="gp_a" placeholder=""></div>
+    <div><label>Common ratio (r)</label><input type="text" id="gp_r" placeholder=""></div>
+    <div><label>Term number (n)</label><input type="text" id="gp_n" placeholder=""></div>
+    <div><label>nth term (Tn)</label><input type="text" id="gp_Tn" placeholder=""></div>
+    <div><label>Sum of n terms (Sn)</label><input type="text" id="gp_Sn" placeholder=""></div>
   </div>
-  <button onclick="postSolve('/api/solve/sequences/gp-nth', {a: document.getElementById('gpn_a').value, r: document.getElementById('gpn_r').value, n: document.getElementById('gpn_n').value}, 'gpn_out')">Solve</button>
-  <div id="gpn_out"></div>
+  <button onclick="postSolve('/api/solve/sequences/gp-solve', {a: document.getElementById('gp_a').value, r: document.getElementById('gp_r').value, n: document.getElementById('gp_n').value, Tn: document.getElementById('gp_Tn').value, Sn: document.getElementById('gp_Sn').value}, 'gp_out')">Solve</button>
+  <div id="gp_out"></div>
 </div>
 
-<div id="gpsum" class="panel card">
-  <h2>Geometric Progression — sum of n terms</h2>
-  <p class="hint">Sn = a(r^n - 1)/(r - 1)</p>
+<div id="gpterms" class="panel card">
+  <h2>GP — List a range of terms</h2>
   <div class="two-col">
-    <div><label>First term (a)</label><input type="text" id="gps_a" placeholder="2"></div>
-    <div><label>Common ratio (r)</label><input type="text" id="gps_r" placeholder="3"></div>
-    <div><label>Number of terms (n)</label><input type="text" id="gps_n" placeholder="5"></div>
+    <div><label>First term (a)</label><input type="text" id="gpt_a" placeholder="2"></div>
+    <div><label>Common ratio (r)</label><input type="text" id="gpt_r" placeholder="3"></div>
+    <div><label>From term number</label><input type="text" id="gpt_start" placeholder="1"></div>
+    <div><label>To term number</label><input type="text" id="gpt_end" placeholder="5"></div>
   </div>
-  <button onclick="postSolve('/api/solve/sequences/gp-sum', {a: document.getElementById('gps_a').value, r: document.getElementById('gps_r').value, n: document.getElementById('gps_n').value}, 'gps_out')">Solve</button>
-  <div id="gps_out"></div>
+  <button onclick="postSolve('/api/solve/sequences/gp-terms', {a: document.getElementById('gpt_a').value, r: document.getElementById('gpt_r').value, start: document.getElementById('gpt_start').value, end: document.getElementById('gpt_end').value}, 'gpt_out')">Solve</button>
+  <div id="gpt_out"></div>
 </div>
 
 <div id="gpinf" class="panel card">
@@ -67,6 +76,19 @@
   </div>
   <button onclick="postSolve('/api/solve/sequences/gp-sum-infinity', {a: document.getElementById('gpi_a').value, r: document.getElementById('gpi_r').value}, 'gpi_out')">Solve</button>
   <div id="gpi_out"></div>
+</div>
+
+<div id="series" class="panel card">
+  <h2>Series — find the pattern (not AP or GP)</h2>
+  <p class="hint">Give at least 3-4 consecutive terms, in order, separated by commas. The solver will check
+     whether it's arithmetic, geometric, or a quadratic sequence (using the method of differences),
+     work out the formula for the nth term, and can list more terms using that formula.</p>
+  <label>Known terms</label>
+  <input type="text" id="sq_terms" placeholder="2, 5, 10, 17, 26">
+  <label>List terms 1 up to (optional)</label>
+  <input type="text" id="sq_upto" placeholder="e.g. 8">
+  <button onclick="postSolve('/api/solve/sequences/general', {terms: document.getElementById('sq_terms').value, find_upto: document.getElementById('sq_upto').value}, 'sq_out')">Solve</button>
+  <div id="sq_out"></div>
 </div>
 {% endblock %}
 {% block scripts %}

@@ -133,6 +133,173 @@ def solve_quadratic(expr_str):
         return _fail(f"Could not parse/solve: {e}")
 
 
+def solve_quadratic_completing_square(expr_str):
+    """Solve ax^2+bx+c=0 by completing the square -- works for any quadratic."""
+    try:
+        expr_str = _require(expr_str, "the equation")
+        expr = _parse(expr_str)
+        poly = sp.Poly(expr, x)
+        if poly.degree() != 2:
+            return _fail("That isn't a quadratic (degree must be 2).")
+        a, b, c = poly.all_coeffs()
+
+        def signed(val, suffix=""):
+            """'+ 5x' or '- 5x' -- for chaining onto an existing term."""
+            v = _mathstr(val if val >= 0 else -val)
+            if suffix and getattr(val, "q", 1) != 1 and val != 0:
+                v = f"({v})"
+            if val < 0:
+                return f"- {v}{suffix}"
+            return f"+ {v}{suffix}"
+
+        def paren_sq(val):
+            """'(val)^2' with parens only when actually needed for clarity."""
+            v = _mathstr(val)
+            if val < 0 or getattr(val, "q", 1) != 1:
+                return f"({v})^2"
+            return f"{v}^2"
+
+        steps = [f"Standard form: {a}x^2 + ({b})x + ({c}) = 0  (a = {a}, b = {b}, c = {c})"]
+
+        if a != 1:
+            steps.append(f"Divide every term by a = {a} so the x^2 coefficient is 1:")
+            b_over_a = sp.nsimplify(sp.Rational(b, a)) if b != 0 else sp.Integer(0)
+            c_over_a = sp.nsimplify(sp.Rational(c, a))
+            steps.append(f"x^2 {signed(b_over_a, 'x')} {signed(c_over_a)} = 0")
+        else:
+            b_over_a = b
+            c_over_a = c
+
+        steps.append("Move the constant to the right-hand side:")
+        steps.append(f"x^2 {signed(b_over_a, 'x')} = {_mathstr(-c_over_a)}")
+
+        half = sp.nsimplify(sp.Rational(1, 2) * b_over_a)
+        half_sq = sp.nsimplify(half ** 2)
+        steps.append(f"Take half of the x-coefficient ({_mathstr(b_over_a)}/2 = {_mathstr(half)}), "
+                      f"square it ({paren_sq(half)} = {_mathstr(half_sq)}), and add it to both sides:")
+        rhs = sp.nsimplify(sp.simplify(-c_over_a + half_sq))
+        steps.append(f"x^2 {signed(b_over_a, 'x')} + {_mathstr(half_sq)} = {_mathstr(-c_over_a)} + {_mathstr(half_sq)}")
+        steps.append(f"(x {signed(half)})^2 = {_mathstr(rhs)}")
+
+        if rhs < 0:
+            steps.append(f"Since the right-hand side ({_mathstr(rhs)}) is negative, there is no real "
+                         "square root -- this equation has no real solutions.")
+            return _fail(f"No real solutions -- completing the square gives (x {signed(half)})^2 "
+                         f"= {_mathstr(rhs)}, and a square can't be negative.")
+
+        steps.append("Take the square root of both sides:")
+        sqrt_rhs = sp.nsimplify(sp.sqrt(rhs))
+        steps.append(f"x {signed(half)} = \u00b1\u221a({_mathstr(rhs)}) = \u00b1{_mathstr(sqrt_rhs)}")
+
+        r_plus = sp.nsimplify(sp.simplify(-half + sqrt_rhs))
+        r_minus = sp.nsimplify(sp.simplify(-half - sqrt_rhs))
+        neg_half = _mathstr(-half)
+
+        def fmt_root(r):
+            return _mathstr(r) + ("" if r.is_real is False or r.is_integer else f"  (~= {sp.N(r, 4)})")
+
+        if rhs == 0:
+            steps.append(f"x = {neg_half} = {fmt_root(r_plus)}")
+            result = f"x = {_mathstr(r_plus)}"
+        else:
+            steps.append(f"x = {neg_half} {signed(sqrt_rhs)} = {fmt_root(r_plus)}")
+            steps.append(f"x = {neg_half} {signed(-sqrt_rhs)} = {fmt_root(r_minus)}")
+            result = f"x = {_mathstr(r_plus)}, x = {_mathstr(r_minus)}"
+
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not parse/solve: {e}")
+
+
+def solve_quadratic_factorisation(expr_str):
+    """Solve ax^2+bx+c=0 by factorisation (splitting the middle term),
+    for quadratics that factorise nicely over rational numbers."""
+    try:
+        expr_str = _require(expr_str, "the equation")
+        expr = _parse(expr_str)
+        poly = sp.Poly(expr, x)
+        if poly.degree() != 2:
+            return _fail("That isn't a quadratic (degree must be 2).")
+        a, b, c = poly.all_coeffs()
+        if not (a.is_Integer and b.is_Integer and c.is_Integer):
+            return _fail("Factorisation here needs whole-number coefficients -- please try the "
+                         "Completing the Square or Formula method instead.")
+
+        steps = [f"Standard form: {a}x^2 + ({b})x + ({c}) = 0  (a = {a}, b = {b}, c = {c})"]
+
+        factored = sp.factor(expr)
+        is_factored = isinstance(factored, sp.Mul) or (
+            isinstance(factored, sp.Pow) and factored.exp == 2)
+        if not is_factored:
+            return _fail("This quadratic doesn't factorise nicely over whole numbers -- please "
+                         "try the Completing the Square or Formula method instead.")
+
+        ac = a * c
+        found = None
+        limit = int(abs(ac)) + 1
+        for m in range(-limit, limit + 1):
+            if m == 0 or ac % m != 0:
+                continue
+            n = ac // m
+            if m + n == b:
+                found = (m, n)
+                break
+
+        if found:
+            m, n = found
+            steps.append(f"Find two numbers that multiply to give a x c = ({a})({c}) = {ac} "
+                          f"and add to give b = {b}: {m} and {n}")
+            m_term = f"+ {m}x" if m >= 0 else f"- {abs(m)}x"
+            n_term = f"+ {n}x" if n >= 0 else f"- {abs(n)}x"
+            steps.append(f"Split the middle term: {a}x^2 {m_term} {n_term} + ({c}) = 0")
+            steps.append("Group in pairs and factorise each group, then factor out the common bracket:")
+
+        def clean(s):
+            return str(s).replace("**", "^").replace("*", "")
+
+        steps.append(f"Factorised form: {clean(sp.factor(expr, x))} = 0")
+
+        # Extract the linear factors (handling a repeated/squared factor too)
+        if isinstance(factored, sp.Pow):
+            factors = [factored.base] * 2
+        else:
+            factors = []
+            for f in factored.args:
+                if f.is_number:
+                    continue
+                if isinstance(f, sp.Pow):
+                    factors.extend([f.base] * int(f.exp))
+                else:
+                    factors.append(f)
+
+        steps.append("Using the zero product rule: if two things multiply to give 0, at least "
+                      "one of them must be 0.")
+
+        roots = []
+        for f in factors:
+            fpoly = sp.Poly(f, x)
+            fa, fb = fpoly.all_coeffs() if fpoly.degree() == 1 else (sp.Integer(0), f)
+            eq_line = f"{clean(f)} = 0"
+            steps.append(eq_line)
+            root = sp.nsimplify(sp.simplify(-fb / fa))
+            root_line = f"x = {_mathstr(root)}"
+            if root_line != eq_line:
+                steps.append(root_line)
+            roots.append(root)
+
+        if len(roots) == 2 and roots[0] == roots[1]:
+            result = f"x = {_mathstr(roots[0])} (repeated root)"
+        else:
+            result = ", ".join(f"x = {_mathstr(r)}" for r in roots)
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not parse/solve: {e}")
+
+
 def solve_linear(expr_str):
     try:
         expr_str = _require(expr_str, "the equation")
@@ -683,110 +850,189 @@ def plot_functions_png(expr_str, expr2_str=None, x_min=-10, x_max=10,
 
 # --------------------------------------------------------------- SEQUENCES --
 
-def ap_nth_term(a, d, n):
-    """Arithmetic Progression: nth term Tn = a + (n-1)d."""
+def ap_solve(a=None, d=None, n=None, Tn=None, Sn=None):
+    """General Arithmetic Progression solver. Provide whichever of
+    a, d, n, Tn (nth term), Sn (sum of n terms) you know, and leave the
+    rest blank -- this solves for whatever is missing using:
+        Tn = a + (n-1)d
+        Sn = (n/2)[2a + (n-1)d]
+    """
+    try:
+        vals = {"a": a, "d": d, "n": n, "Tn": Tn, "Sn": Sn}
+        known = {k: sp.nsimplify(v) for k, v in vals.items() if v not in (None, "")}
+        missing = [k for k in vals if k not in known]
+        if not missing:
+            return _fail("Please leave at least one value blank -- that's the one to find.")
+
+        A, D, N, TNs, SNs = sp.symbols("a d n Tn Sn", real=True)
+        symmap = {"a": A, "d": D, "n": N, "Tn": TNs, "Sn": SNs}
+        eq_tn = sp.Eq(TNs, A + (N - 1) * D)
+        eq_sn = sp.Eq(SNs, (N / 2) * (2 * A + (N - 1) * D))
+
+        steps = [
+            "Formulas: Tn = a + (n - 1)d   and   Sn = (n/2)[2a + (n - 1)d]",
+            "Known: " + ", ".join(f"{k} = {v}" for k, v in known.items()),
+        ]
+        subs = {symmap[k]: v for k, v in known.items()}
+        eq_tn_sub = eq_tn.subs(subs)
+        eq_sn_sub = eq_sn.subs(subs)
+
+        target_syms = [symmap[k] for k in missing]
+        sol = sp.solve([eq_tn_sub, eq_sn_sub], target_syms, dict=True)
+        if not sol:
+            # Fall back to whichever single equation is enough (e.g. Sn not
+            # involved at all in what's known/missing)
+            sol = sp.solve([eq_tn_sub], target_syms, dict=True) or \
+                  sp.solve([eq_sn_sub], target_syms, dict=True)
+        if not sol:
+            return _fail("Could not solve for the missing value(s) with the numbers given -- "
+                         "please check there's enough information (and that it's consistent).")
+
+        chosen = None
+        for cand in sol:
+            if "n" in missing and N in cand:
+                nv = sp.simplify(cand[N])
+                if nv.is_real and nv > 0 and float(nv) == int(round(float(nv))):
+                    chosen = cand
+                    break
+            else:
+                chosen = cand
+                break
+        if chosen is None:
+            chosen = sol[0]
+
+        for k in missing:
+            val = sp.nsimplify(sp.simplify(chosen[symmap[k]]))
+            steps.append(f"{k} = {_mathstr(val)}")
+            known[k] = val
+
+        result = ", ".join(f"{k} = {_mathstr(known[k])}" for k in ("a", "d", "n", "Tn", "Sn"))
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def ap_list_terms(a=None, d=None, start=None, end=None):
+    """List AP terms from term number `start` to term number `end` (inclusive)."""
     try:
         a = sp.nsimplify(_require(a, "first term (a)"))
         d = sp.nsimplify(_require(d, "common difference (d)"))
-        n = sp.nsimplify(_require(n, "term number (n)"))
-        steps = [
-            "Formula for the nth term of an Arithmetic Progression (AP): Tn = a + (n - 1)d",
-            f"Substitute a = {a}, d = {d}, n = {n}:",
-            f"T{n} = {a} + ({n} - 1)({d})",
-        ]
-        tn = sp.simplify(a + (n - 1) * d)
-        steps.append(f"T{n} = {a} + ({n-1})({d})")
-        steps.append(f"T{n} = {_mathstr(tn)}")
-        return _ok(steps, f"T{n} = {_mathstr(tn)}")
+        start = int(sp.nsimplify(_require(start, "start term number")))
+        end = int(sp.nsimplify(_require(end, "end term number")))
+        if start < 1 or end < start:
+            return _fail("Start must be at least 1, and end must not be before start.")
+        if end - start > 200:
+            return _fail("That's a lot of terms -- please ask for 200 or fewer at a time.")
+        steps = ["Tn = a + (n - 1)d", f"a = {a}, d = {d}"]
+        terms = []
+        for k in range(start, end + 1):
+            tk = sp.simplify(a + (k - 1) * d)
+            terms.append(_mathstr(tk))
+        steps.append(f"Terms {start} to {end}: " + ", ".join(terms))
+        return _ok(steps, ", ".join(terms))
     except _MissingInput as e:
         return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not solve: {e}")
 
 
-def ap_sum(a, d, n):
-    """Arithmetic Progression: sum of first n terms, Sn = n/2 * (2a + (n-1)d)."""
+def gp_solve(a=None, r=None, n=None, Tn=None, Sn=None):
+    """General Geometric Progression solver. Provide whichever of
+    a, r, n, Tn (nth term), Sn (sum of n terms) you know, and leave the
+    rest blank. Uses Tn = a.r^(n-1) and Sn = a(r^n - 1)/(r - 1)."""
     try:
-        a = sp.nsimplify(_require(a, "first term (a)"))
-        d = sp.nsimplify(_require(d, "common difference (d)"))
-        n = sp.nsimplify(_require(n, "number of terms (n)"))
+        vals = {"a": a, "r": r, "n": n, "Tn": Tn, "Sn": Sn}
+        known = {k: sp.nsimplify(v) for k, v in vals.items() if v not in (None, "")}
+        missing = [k for k in vals if k not in known]
+        if not missing:
+            return _fail("Please leave at least one value blank -- that's the one to find.")
+
         steps = [
-            "Formula for the sum of the first n terms of an AP: Sn = (n/2)[2a + (n - 1)d]",
-            f"Substitute a = {a}, d = {d}, n = {n}:",
-            f"S{n} = ({n}/2)[2({a}) + ({n} - 1)({d})]",
+            "Formulas: Tn = a x r^(n-1)   and   Sn = a(r^n - 1)/(r - 1)  [r != 1]",
+            "Known: " + ", ".join(f"{k} = {v}" for k, v in known.items()),
         ]
-        inner = sp.simplify(2 * a + (n - 1) * d)
-        steps.append(f"S{n} = ({n}/2)[{2*a} + ({n-1})({d})]")
-        steps.append(f"S{n} = ({n}/2)({inner})")
-        sn = sp.simplify(sp.Rational(1, 2) * n * inner)
-        steps.append(f"S{n} = {_mathstr(sn)}")
-        return _ok(steps, f"S{n} = {_mathstr(sn)}")
+
+        # Step 1: if exactly one of a/r/n is missing (and Tn is known),
+        # solve for it using the inverse of the Tn formula.
+        core_missing = [k for k in ("a", "r", "n") if k in missing]
+        if len(core_missing) == 1 and "Tn" in known:
+            only = core_missing[0]
+            if only == "a":
+                r_, n_, tn_ = known["r"], known["n"], known["Tn"]
+                a_ = sp.nsimplify(sp.simplify(tn_ / r_ ** (n_ - 1)))
+                steps.append(f"a = Tn / r^(n-1) = {tn_} / ({r_})^({n_}-1) = {_mathstr(a_)}")
+                known["a"] = a_
+            elif only == "r":
+                a_, n_, tn_ = known["a"], known["n"], known["Tn"]
+                if n_ == 1:
+                    return _fail("With n = 1, Tn = a always -- r cannot be determined from this.")
+                r_ = sp.nsimplify(sp.real_root(sp.simplify(tn_ / a_), int(n_ - 1)))
+                steps.append(f"r^({n_}-1) = Tn/a = {tn_}/{a_}")
+                steps.append(f"r = ({tn_}/{a_})^(1/{n_-1}) = {_mathstr(r_)}")
+                known["r"] = r_
+            elif only == "n":
+                a_, r_, tn_ = known["a"], known["r"], known["Tn"]
+                if r_ in (1, -1) or a_ == 0:
+                    return _fail("Can't uniquely determine n from these values (r = 1, r = -1, or "
+                                 "a = 0 makes this ambiguous).")
+                n_ = sp.simplify(1 + sp.log(tn_ / a_) / sp.log(r_))
+                n_num = sp.N(n_, 10)
+                steps.append(f"r^(n-1) = Tn/a = {tn_}/{a_}")
+                steps.append("n - 1 = log(Tn/a) / log(r)")
+                if abs(n_num - round(float(n_num))) < 1e-6:
+                    n_ = int(round(float(n_num)))
+                steps.append(f"n = {n_}")
+                known["n"] = n_
+        elif len(core_missing) > 1:
+            return _fail("Please provide at least two of a, r, n (plus Tn if needed) -- there "
+                         "isn't enough information to solve for more than one of a, r, n at once.")
+
+        # Step 2: once a, r, n are all known, fill in any of Tn/Sn still missing.
+        if not ({"a", "r", "n"} <= set(known.keys())):
+            return _fail("Not enough information -- please provide at least three of a, r, n, Tn "
+                         "(with at most one of a, r, n left blank), so the rest can be worked out.")
+
+        a_, r_, n_ = known["a"], known["r"], known["n"]
+        if "Tn" not in known:
+            tn_ = sp.nsimplify(sp.simplify(a_ * r_ ** (n_ - 1)))
+            steps.append(f"Tn = a x r^(n-1) = {a_} x ({r_})^({n_}-1) = {_mathstr(tn_)}")
+            known["Tn"] = tn_
+        if "Sn" not in known:
+            if r_ == 1:
+                sn_ = sp.simplify(a_ * n_)
+            else:
+                sn_ = sp.nsimplify(sp.simplify(a_ * (r_ ** n_ - 1) / (r_ - 1)))
+            steps.append(f"Sn = a(r^n - 1)/(r - 1) = {_mathstr(sn_)}")
+            known["Sn"] = sn_
+
+        result = ", ".join(f"{k} = {_mathstr(known[k])}" for k in ("a", "r", "n", "Tn", "Sn") if k in known)
+        return _ok(steps, result)
     except _MissingInput as e:
         return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not solve: {e}")
 
 
-def gp_nth_term(a, r, n):
-    """Geometric Progression: nth term Tn = a * r^(n-1)."""
+def gp_list_terms(a=None, r=None, start=None, end=None):
+    """List GP terms from term number `start` to term number `end` (inclusive)."""
     try:
         a = sp.nsimplify(_require(a, "first term (a)"))
         r = sp.nsimplify(_require(r, "common ratio (r)"))
-        n = sp.nsimplify(_require(n, "term number (n)"))
-        steps = [
-            "Formula for the nth term of a Geometric Progression (GP): Tn = a x r^(n-1)",
-            f"Substitute a = {a}, r = {r}, n = {n}:",
-            f"T{n} = {a} x ({r})^({n} - 1)",
-            f"T{n} = {a} x ({r})^{n-1}",
-        ]
-        tn = sp.simplify(a * r ** (n - 1))
-        tn = sp.nsimplify(tn)
-        steps.append(f"T{n} = {_mathstr(tn)}")
-        return _ok(steps, f"T{n} = {_mathstr(tn)}")
-    except _MissingInput as e:
-        return _fail(str(e))
-    except Exception as e:
-        return _fail(f"Could not solve: {e}")
-
-
-def gp_sum(a, r, n):
-    """Geometric Progression: sum of first n terms."""
-    try:
-        a = sp.nsimplify(_require(a, "first term (a)"))
-        r = sp.nsimplify(_require(r, "common ratio (r)"))
-        n = sp.nsimplify(_require(n, "number of terms (n)"))
-        if r == 1:
-            sn = sp.simplify(a * n)
-            steps = [
-                "Since r = 1, every term equals a, so Sn = n x a",
-                f"S{n} = {n} x {a} = {_mathstr(sn)}",
-            ]
-            return _ok(steps, f"S{n} = {_mathstr(sn)}")
-
-        if abs(r) > 1:
-            steps = [
-                "Since |r| > 1, use: Sn = a(r^n - 1) / (r - 1)",
-                f"Substitute a = {a}, r = {r}, n = {n}:",
-                f"S{n} = {a}(({r})^{n} - 1) / ({r} - 1)",
-            ]
-            rn = sp.simplify(r ** n)
-            steps.append(f"({r})^{n} = {rn}")
-            sn = sp.simplify(a * (rn - 1) / (r - 1))
-        else:
-            steps = [
-                "Since |r| < 1, use: Sn = a(1 - r^n) / (1 - r)",
-                f"Substitute a = {a}, r = {r}, n = {n}:",
-                f"S{n} = {a}(1 - ({r})^{n}) / (1 - {r})",
-            ]
-            rn = sp.simplify(r ** n)
-            steps.append(f"({r})^{n} = {rn}")
-            sn = sp.simplify(a * (1 - rn) / (1 - r))
-
-        sn = sp.nsimplify(sn)
-        steps.append(f"S{n} = {_mathstr(sn)}")
-        if not sn.is_integer:
-            steps.append(f"S{n} \u2248 {sp.N(sn, 6)}")
-        return _ok(steps, f"S{n} = {_mathstr(sn)}")
+        start = int(sp.nsimplify(_require(start, "start term number")))
+        end = int(sp.nsimplify(_require(end, "end term number")))
+        if start < 1 or end < start:
+            return _fail("Start must be at least 1, and end must not be before start.")
+        if end - start > 200:
+            return _fail("That's a lot of terms -- please ask for 200 or fewer at a time.")
+        steps = ["Tn = a x r^(n-1)", f"a = {a}, r = {r}"]
+        terms = []
+        for k in range(start, end + 1):
+            tk = sp.nsimplify(sp.simplify(a * r ** (k - 1)))
+            terms.append(_mathstr(tk))
+        steps.append(f"Terms {start} to {end}: " + ", ".join(terms))
+        return _ok(steps, ", ".join(terms))
     except _MissingInput as e:
         return _fail(str(e))
     except Exception as e:
@@ -818,6 +1064,68 @@ def gp_sum_infinity(a, r):
         return _fail(f"Could not solve: {e}")
 
 
+def general_sequence(terms_str, find_upto=None):
+    """A 'series' that is neither AP nor GP -- deduce the pattern from a few
+    given consecutive terms using the method of differences (handles linear
+    i.e. AP, quadratic, and constant-ratio i.e. GP patterns), find the
+    formula for Tn, and optionally list terms up to a given term number."""
+    try:
+        terms_str = _require(terms_str, "the known terms")
+        raw = [p.strip() for p in re.split(r"[,\s]+", terms_str.strip()) if p.strip() != ""]
+        if len(raw) < 3:
+            return _fail("Please give at least 3 consecutive terms so a pattern can be found.")
+        terms = [sp.nsimplify(t) for t in raw]
+        steps = [f"Given terms: {', '.join(str(t) for t in terms)}"]
+
+        d1 = [sp.simplify(terms[i + 1] - terms[i]) for i in range(len(terms) - 1)]
+        steps.append(f"1st differences: {', '.join(str(x) for x in d1)}")
+
+        n = sp.Symbol("n")
+        if len(set(d1)) == 1:
+            d = d1[0]
+            a = terms[0]
+            steps.append(f"The 1st differences are constant (d = {d}) -- this is an Arithmetic sequence.")
+            Tn_formula = sp.expand(a + (n - 1) * d)
+            steps.append(f"Tn = a + (n-1)d = {a} + (n-1)({d}) = {Tn_formula}")
+        elif len(terms) >= 2 and all(t != 0 for t in terms[:-1]) and \
+                len({sp.simplify(terms[i + 1] / terms[i]) for i in range(len(terms) - 1)}) == 1:
+            r = sp.simplify(terms[1] / terms[0])
+            a = terms[0]
+            steps.append(f"The ratio between consecutive terms is constant (r = {r}) -- this is a Geometric sequence.")
+            Tn_formula = a * r ** (n - 1)
+            steps.append(f"Tn = a x r^(n-1) = {a} x ({r})^(n-1)")
+        elif len(d1) >= 2 and len(set(sp.simplify(d1[i + 1] - d1[i]) for i in range(len(d1) - 1))) == 1:
+            d2 = sp.simplify(d1[1] - d1[0])
+            steps.append(f"2nd differences: {', '.join(str(sp.simplify(d1[i+1]-d1[i])) for i in range(len(d1)-1))}")
+            steps.append(f"The 2nd differences are constant ({d2}) -- this is a Quadratic sequence: Tn = An^2 + Bn + C.")
+            A_, B_, C_ = sp.symbols("A B C")
+            eqs = [sp.Eq(A_ * (i + 1) ** 2 + B_ * (i + 1) + C_, terms[i]) for i in range(3)]
+            sol = sp.solve(eqs, [A_, B_, C_])
+            Av, Bv, Cv = sp.nsimplify(sol[A_]), sp.nsimplify(sol[B_]), sp.nsimplify(sol[C_])
+            steps.append(f"Solving using the first three terms: A = {Av}, B = {Bv}, C = {Cv}")
+            Tn_formula = sp.expand(Av * n ** 2 + Bv * n + Cv)
+            steps.append(f"Tn = {Tn_formula}")
+        else:
+            return _fail("Could not identify a simple AP, GP, or quadratic pattern from these terms. "
+                         "Please check the terms are correct and in order.")
+
+        Tn_str = str(Tn_formula).replace("**", "^").replace("*", "")
+        steps[-1] = steps[-1].replace(str(Tn_formula), Tn_str) if str(Tn_formula) in steps[-1] else steps[-1]
+        result = f"Tn = {Tn_str}"
+        if find_upto not in (None, ""):
+            find_upto = int(sp.nsimplify(find_upto))
+            more = [str(sp.simplify(Tn_formula.subs(n, k))) for k in range(1, find_upto + 1)]
+            steps.append(f"Terms 1 to {find_upto} using this formula: {', '.join(more)}")
+            result += f"; terms 1-{find_upto}: " + ", ".join(more)
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+
+
 # -------------------------------------------------------------------- SETS --
 
 def _parse_set(s, label):
@@ -830,17 +1138,88 @@ def _parse_set(s, label):
     return set(parts), parts  # set (for ops) and ordered list (for readable display)
 
 
+def _fmt_set(s):
+    ordered = sorted(s, key=lambda v: (len(v), v))
+    return "{" + ", ".join(ordered) + "}" if ordered else "{ } (empty set)"
+
+
+def _venn_png(circles, texts, xlim=(-3.4, 3.4), ylim=(-2.6, 2.6), figsize=(6.5, 5.2)):
+    """circles: list of (cx, cy, radius, facecolor). texts: list of (x, y, string, fontsize)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import io, base64
+
+    fig, ax = plt.subplots(figsize=figsize)
+    # bounding rectangle represents the universal set U
+    rect_x0, rect_y0 = xlim[0] + 0.15, ylim[0] + 0.15
+    rect_w, rect_h = (xlim[1] - xlim[0]) - 0.3, (ylim[1] - ylim[0]) - 0.3
+    ax.add_patch(plt.Rectangle((rect_x0, rect_y0), rect_w, rect_h,
+                                fill=False, edgecolor="#334155", linewidth=1.6))
+    ax.text(rect_x0 + 0.12, rect_y0 + rect_h - 0.12, "U", fontsize=15, fontweight="bold",
+            ha="left", va="top", color="#334155")
+
+    for (cx, cy, r, color) in circles:
+        ax.add_patch(plt.Circle((cx, cy), r, facecolor=color, edgecolor="#1e293b",
+                                 linewidth=1.6, alpha=0.45))
+
+    for (x, y, s, fs) in texts:
+        ax.text(x, y, s, fontsize=fs, ha="center", va="center", color="#0f172a", wrap=True)
+
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode("ascii")
+
+
+def _venn2_diagram(label_a, label_b, only_a_text, only_b_text, both_text, neither_text):
+    circles = [(-0.85, 0, 1.7, "#60a5fa"), (0.85, 0, 1.7, "#f472b6")]
+    texts = [
+        (-1.9, 1.9, label_a, 14),
+        (1.9, 1.9, label_b, 14),
+        (-1.55, 0, only_a_text, 10),
+        (1.55, 0, only_b_text, 10),
+        (0, 0, both_text, 10),
+        (-2.7, -2.1, "neither:\n" + neither_text, 9.5),
+    ]
+    return _venn_png(circles, texts)
+
+
+def _venn3_diagram(only_a, only_b, only_c, ab, ac, bc, abc, neither_text):
+    circles = [
+        (-0.85, 0.6, 1.6, "#60a5fa"),
+        (0.85, 0.6, 1.6, "#f472b6"),
+        (0, -0.85, 1.6, "#4ade80"),
+    ]
+    texts = [
+        (-1.9, 2.1, "A", 14),
+        (1.9, 2.1, "B", 14),
+        (0, -2.3, "C", 14),
+        (-1.55, 1.15, only_a, 9),
+        (1.55, 1.15, only_b, 9),
+        (0, -1.75, only_c, 9),
+        (0, 1.2, ab, 9),
+        (-1.05, -0.65, ac, 9),
+        (1.05, -0.65, bc, 9),
+        (0, 0.05, abc, 9),
+        (-2.9, -2.2, "neither:\n" + neither_text, 9),
+    ]
+    return _venn_png(circles, texts)
+
+
 def set_operations(set_a_str, set_b_str, universal_str=None):
-    """Union, intersection, differences, and (if a universal set is given) complements."""
+    """Union, intersection, differences, and (if a universal set is given) complements.
+    Also draws the corresponding 2-set Venn diagram with elements shown."""
     try:
         A, a_order = _parse_set(set_a_str, "Set A")
         B, b_order = _parse_set(set_b_str, "Set B")
         steps = [f"A = {{{', '.join(a_order)}}}", f"B = {{{', '.join(b_order)}}}"]
-
-        def show(label_expr, s):
-            ordered = sorted(s, key=lambda v: (len(v), v))
-            return f"{label_expr} = {{{', '.join(ordered) if ordered else ''}}}" + (
-                "  (the empty set)" if not ordered else "")
 
         union = A | B
         inter = A & B
@@ -848,32 +1227,40 @@ def set_operations(set_a_str, set_b_str, universal_str=None):
         b_only = B - A
 
         steps.append("Union (elements in A or B or both):")
-        steps.append(show("A \u222a B", union))
+        steps.append(f"A \u222a B = {_fmt_set(union)}")
         steps.append("Intersection (elements in both A and B):")
-        steps.append(show("A \u2229 B", inter))
+        steps.append(f"A \u2229 B = {_fmt_set(inter)}")
         steps.append("A only (in A but not B):")
-        steps.append(show("A - B", a_only))
+        steps.append(f"A - B = {_fmt_set(a_only)}")
         steps.append("B only (in B but not A):")
-        steps.append(show("B - A", b_only))
+        steps.append(f"B - A = {_fmt_set(b_only)}")
 
-        result_lines = [
-            f"A \u222a B = {{{', '.join(sorted(union, key=lambda v: (len(v), v)))}}}",
-            f"A \u2229 B = {{{', '.join(sorted(inter, key=lambda v: (len(v), v)))}}}",
-        ]
-
+        result_lines = [f"A \u222a B = {_fmt_set(union)}", f"A \u2229 B = {_fmt_set(inter)}"]
+        neither_text = ""
+        U = None
         if universal_str not in (None, ""):
             U, u_order = _parse_set(universal_str, "the universal set")
             steps.append(f"U = {{{', '.join(u_order)}}}")
             a_comp = U - A
             b_comp = U - B
+            neither = U - union
             steps.append("Complement of A (in U but not in A):")
-            steps.append(show("A'", a_comp))
+            steps.append(f"A' = {_fmt_set(a_comp)}")
             steps.append("Complement of B (in U but not in B):")
-            steps.append(show("B'", b_comp))
-            result_lines.append(f"A' = {{{', '.join(sorted(a_comp, key=lambda v: (len(v), v)))}}}")
-            result_lines.append(f"B' = {{{', '.join(sorted(b_comp, key=lambda v: (len(v), v)))}}}")
+            steps.append(f"B' = {_fmt_set(b_comp)}")
+            result_lines.append(f"A' = {_fmt_set(a_comp)}")
+            result_lines.append(f"B' = {_fmt_set(b_comp)}")
+            neither_text = ", ".join(sorted(neither, key=lambda v: (len(v), v))) or "none"
 
-        return _ok(steps, "; ".join(result_lines))
+        def short(s, limit=8):
+            ordered = sorted(s, key=lambda v: (len(v), v))
+            txt = ", ".join(ordered) if ordered else "-"
+            if len(ordered) > limit:
+                txt = ", ".join(ordered[:limit]) + ", ..."
+            return txt
+
+        img = _venn2_diagram("A", "B", short(a_only), short(b_only), short(inter), neither_text or "-")
+        return _ok(steps, {"image": img, "text": "; ".join(result_lines)})
     except _MissingInput as e:
         return _fail(str(e))
     except Exception as e:
@@ -883,7 +1270,8 @@ def set_operations(set_a_str, set_b_str, universal_str=None):
 def venn_two_set(n_u=None, n_a=None, n_b=None, n_both=None, n_neither=None):
     """2-set Venn diagram word problem. Exactly one of the five quantities
     should be left blank; the others are used to solve for it via
-    inclusion-exclusion, then the full breakdown is shown."""
+    inclusion-exclusion, then the full breakdown is shown, along with a
+    drawn Venn diagram."""
     try:
         vals = {"n_u": n_u, "n_a": n_a, "n_b": n_b, "n_both": n_both, "n_neither": n_neither}
         labels = {"n_u": "n(U) - total", "n_a": "n(A)", "n_b": "n(B)",
@@ -929,7 +1317,50 @@ def venn_two_set(n_u=None, n_a=None, n_b=None, n_both=None, n_neither=None):
 
         result = (f"n(U)={n_u_v}, n(A)={n_a_v}, n(B)={n_b_v}, both={n_both_v}, "
                   f"only A={a_only}, only B={b_only}, neither={n_neither_v}")
-        return _ok(steps, result)
+        img = _venn2_diagram("A", "B", str(a_only), str(b_only), str(n_both_v), str(n_neither_v))
+        return _ok(steps, {"image": img, "text": result})
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def venn_two_set_elements(set_a_str, set_b_str, universal_str):
+    """2-set Venn diagram built directly from actual set elements, showing
+    exactly which elements fall in each region, and drawing the diagram."""
+    try:
+        A, a_order = _parse_set(set_a_str, "Set A")
+        B, b_order = _parse_set(set_b_str, "Set B")
+        U, u_order = _parse_set(universal_str, "the universal set")
+        if not (A <= U and B <= U):
+            return _fail("Every element of A and B should also be in the universal set U -- "
+                         "please check for typos.")
+
+        steps = [f"U = {{{', '.join(u_order)}}}", f"A = {{{', '.join(a_order)}}}", f"B = {{{', '.join(b_order)}}}"]
+
+        a_only = A - B
+        b_only = B - A
+        both = A & B
+        neither = U - (A | B)
+
+        steps.append(f"Only A: {_fmt_set(a_only)}")
+        steps.append(f"Only B: {_fmt_set(b_only)}")
+        steps.append(f"Both (A and B): {_fmt_set(both)}")
+        steps.append(f"Neither: {_fmt_set(neither)}")
+        steps.append(f"n(A)={len(A)}, n(B)={len(B)}, n(A and B)={len(both)}, "
+                      f"n(A or B)={len(A|B)}, n(neither)={len(neither)}, n(U)={len(U)}")
+
+        def joined(s, per_line=5):
+            ordered = sorted(s, key=lambda v: (len(v), v))
+            if not ordered:
+                return "-"
+            lines = [", ".join(ordered[i:i+per_line]) for i in range(0, len(ordered), per_line)]
+            return "\n".join(lines)
+
+        img = _venn2_diagram("A", "B", joined(a_only), joined(b_only), joined(both), joined(neither))
+        result = (f"only A={_fmt_set(a_only)}; only B={_fmt_set(b_only)}; "
+                  f"both={_fmt_set(both)}; neither={_fmt_set(neither)}")
+        return _ok(steps, {"image": img, "text": result})
     except _MissingInput as e:
         return _fail(str(e))
     except Exception as e:
@@ -979,9 +1410,65 @@ def venn_three_set(n_u=None, n_a=None, n_b=None, n_c=None,
         steps.append(f"Only B: n(B) - n(A and B) - n(B and C) + n(A and B and C) = {only_b}")
         steps.append(f"Only C: n(C) - n(A and C) - n(B and C) + n(A and B and C) = {only_c}")
 
+        ab_only = sp.simplify(known["n_ab"] - known["n_abc"])
+        ac_only = sp.simplify(known["n_ac"] - known["n_abc"])
+        bc_only = sp.simplify(known["n_bc"] - known["n_abc"])
+        neither = sp.simplify(known["n_u"] - (only_a + only_b + only_c + ab_only + ac_only + bc_only + known["n_abc"]))
+
         result = (f"n(U)={known['n_u']}, only A={only_a}, only B={only_b}, only C={only_c}, "
-                  f"n(A and B and C)={known['n_abc']}")
-        return _ok(steps, result)
+                  f"n(A and B and C)={known['n_abc']}, neither={neither}")
+        img = _venn3_diagram(str(only_a), str(only_b), str(only_c), str(ab_only),
+                              str(ac_only), str(bc_only), str(known["n_abc"]), str(neither))
+        return _ok(steps, {"image": img, "text": result})
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def venn_three_set_elements(set_a_str, set_b_str, set_c_str, universal_str):
+    """3-set Venn diagram built directly from actual set elements."""
+    try:
+        A, a_order = _parse_set(set_a_str, "Set A")
+        B, b_order = _parse_set(set_b_str, "Set B")
+        C, c_order = _parse_set(set_c_str, "Set C")
+        U, u_order = _parse_set(universal_str, "the universal set")
+        if not (A <= U and B <= U and C <= U):
+            return _fail("Every element of A, B and C should also be in the universal set U -- "
+                         "please check for typos.")
+
+        steps = [f"U = {{{', '.join(u_order)}}}", f"A = {{{', '.join(a_order)}}}",
+                 f"B = {{{', '.join(b_order)}}}", f"C = {{{', '.join(c_order)}}}"]
+
+        only_a = A - B - C
+        only_b = B - A - C
+        only_c = C - A - B
+        ab_only = (A & B) - C
+        ac_only = (A & C) - B
+        bc_only = (B & C) - A
+        abc = A & B & C
+        neither = U - (A | B | C)
+
+        steps.append(f"Only A: {_fmt_set(only_a)}")
+        steps.append(f"Only B: {_fmt_set(only_b)}")
+        steps.append(f"Only C: {_fmt_set(only_c)}")
+        steps.append(f"A and B only: {_fmt_set(ab_only)}")
+        steps.append(f"A and C only: {_fmt_set(ac_only)}")
+        steps.append(f"B and C only: {_fmt_set(bc_only)}")
+        steps.append(f"A and B and C: {_fmt_set(abc)}")
+        steps.append(f"Neither: {_fmt_set(neither)}")
+
+        def joined(s, per_line=5):
+            ordered = sorted(s, key=lambda v: (len(v), v))
+            if not ordered:
+                return "-"
+            lines = [", ".join(ordered[i:i+per_line]) for i in range(0, len(ordered), per_line)]
+            return "\n".join(lines)
+
+        img = _venn3_diagram(joined(only_a), joined(only_b), joined(only_c), joined(ab_only),
+                              joined(ac_only), joined(bc_only), joined(abc), joined(neither))
+        result = f"only A={_fmt_set(only_a)}; only B={_fmt_set(only_b)}; only C={_fmt_set(only_c)}; all three={_fmt_set(abc)}; neither={_fmt_set(neither)}"
+        return _ok(steps, {"image": img, "text": result})
     except _MissingInput as e:
         return _fail(str(e))
     except Exception as e:

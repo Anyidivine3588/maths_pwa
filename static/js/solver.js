@@ -28,6 +28,9 @@ function renderResult(targetId, data) {
     if (data.result.intersection) {
       html += `<div class="result-box">Intersection point(s): ${data.result.intersection}</div>`;
     }
+    if (data.result.text) {
+      html += `<div class="result-box">${data.result.text}</div>`;
+    }
   }
   el.innerHTML = html;
 }
