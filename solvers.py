@@ -1718,3 +1718,523 @@ def angle_of_elevation(height=None, distance=None, angle=None):
         return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not solve: {e}")
+
+
+# ---------------------------------------------------------------- INDICES --
+
+def _clean_pow(s):
+    return str(s).replace("**", "^").replace("*", "")
+
+
+def indices_law_multiply(base, m, n):
+    """a^m x a^n = a^(m+n)"""
+    try:
+        base = _require(base, "the base (a)")
+        m = sp.nsimplify(_require(m, "first index (m)"))
+        n = sp.nsimplify(_require(n, "second index (n)"))
+        base_e = _parse(base)
+        steps = ["Law: a^m x a^n = a^(m + n) (same base -- add the indices)",
+                 f"a = {base}, m = {m}, n = {n}"]
+        total = sp.simplify(m + n)
+        steps.append(f"{base}^{m} x {base}^{n} = {base}^({m} + {n}) = {base}^{total}")
+        val = sp.nsimplify(sp.simplify(base_e ** total))
+        if val.is_number:
+            steps.append(f"= {_mathstr(val)}")
+            result = f"{base}^{total} = {_mathstr(val)}"
+        else:
+            result = f"{_clean_pow(base_e**total)}"
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def indices_law_divide(base, m, n):
+    """a^m / a^n = a^(m-n)"""
+    try:
+        base = _require(base, "the base (a)")
+        m = sp.nsimplify(_require(m, "first index (m)"))
+        n = sp.nsimplify(_require(n, "second index (n)"))
+        base_e = _parse(base)
+        steps = ["Law: a^m / a^n = a^(m - n) (same base -- subtract the indices)",
+                 f"a = {base}, m = {m}, n = {n}"]
+        total = sp.simplify(m - n)
+        steps.append(f"{base}^{m} / {base}^{n} = {base}^({m} - {n}) = {base}^{total}")
+        val = sp.nsimplify(sp.simplify(base_e ** total))
+        if val.is_number:
+            steps.append(f"= {_mathstr(val)}")
+            result = f"{base}^{total} = {_mathstr(val)}"
+        else:
+            result = f"{_clean_pow(base_e**total)}"
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def indices_law_power(base, m, n):
+    """(a^m)^n = a^(m x n)"""
+    try:
+        base = _require(base, "the base (a)")
+        m = sp.nsimplify(_require(m, "inner index (m)"))
+        n = sp.nsimplify(_require(n, "outer index (n)"))
+        base_e = _parse(base)
+        steps = ["Law: (a^m)^n = a^(m x n) (power of a power -- multiply the indices)",
+                 f"a = {base}, m = {m}, n = {n}"]
+        total = sp.simplify(m * n)
+        steps.append(f"({base}^{m})^{n} = {base}^({m} x {n}) = {base}^{total}")
+        val = sp.nsimplify(sp.simplify(base_e ** total))
+        if val.is_number:
+            steps.append(f"= {_mathstr(val)}")
+            result = f"{base}^{total} = {_mathstr(val)}"
+        else:
+            result = f"{_clean_pow(base_e**total)}"
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def indices_evaluate(expr_str):
+    """Simplify/evaluate a general expression involving indices, narrating
+    the relevant law where a clear same-base pattern is detected."""
+    try:
+        expr_str = _require(expr_str, "the expression")
+        expr = _parse(expr_str)
+        steps = [f"Expression: {_clean_pow(expr)}"]
+
+        narrated = False
+        if isinstance(expr, sp.Mul):
+            bases = {}
+            for f in expr.args:
+                if isinstance(f, sp.Pow):
+                    bases.setdefault(f.base, []).append(f.exp)
+                elif f.is_number:
+                    bases.setdefault(f, []).append(sp.Integer(1))
+                else:
+                    bases.setdefault(f, []).append(sp.Integer(1))
+            for b, exps in bases.items():
+                if len(exps) > 1:
+                    steps.append(f"Same base {b}: add the indices {' + '.join(str(e) for e in exps)} "
+                                  f"= {sp.simplify(sum(exps))}")
+                    narrated = True
+        elif isinstance(expr, sp.Pow) and isinstance(expr.base, sp.Pow):
+            inner = expr.base
+            steps.append(f"Power of a power: multiply the indices {inner.exp} x {expr.exp} "
+                          f"= {sp.simplify(inner.exp * expr.exp)}")
+            narrated = True
+
+        simplified = sp.nsimplify(sp.powsimp(sp.simplify(expr), force=True))
+        if narrated:
+            steps.append(f"Result: {_clean_pow(simplified)}")
+        else:
+            steps.append(f"Using the laws of indices, this simplifies to: {_clean_pow(simplified)}")
+
+        if simplified.is_number and not simplified.is_integer:
+            steps.append(f"~= {sp.N(simplified, 6)}")
+        return _ok(steps, _clean_pow(simplified))
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def indices_solve_equation(expr_str):
+    """Solve an equation with the unknown x in an index, e.g. 2^(x+1) = 16."""
+    try:
+        expr_str = _require(expr_str, "the equation")
+        if "=" not in expr_str:
+            return _fail("Please give a full equation with an '=' sign, e.g. 2^(x+1) = 16.")
+        lhs_s, rhs_s = expr_str.split("=", 1)
+        lhs = _parse(lhs_s)
+        rhs = _parse(rhs_s)
+        steps = [f"Equation: {_clean_pow(lhs)} = {_clean_pow(rhs)}"]
+
+        # Try to express both sides as powers of the same base.
+        def base_exp(e):
+            if isinstance(e, sp.Pow):
+                return e.base, e.exp
+            return None, None
+
+        lb, le = base_exp(lhs)
+        rb, re_ = base_exp(rhs)
+
+        same_base = None
+        if lb is not None and rb is None and rhs.is_number and rhs > 0:
+            # try to rewrite rhs as lb**k
+            for k in range(1, 40):
+                if sp.simplify(lb ** k - rhs) == 0:
+                    same_base = (lb, le, sp.Integer(k))
+                    break
+                if sp.simplify(lb ** sp.Rational(1, k) - rhs) == 0:
+                    same_base = (lb, le, sp.Rational(1, k))
+                    break
+
+        if same_base:
+            b, exp_lhs, exp_rhs = same_base
+            steps.append(f"Rewrite {_mathstr(rhs)} as a power of {b}: {_mathstr(rhs)} = {b}^{exp_rhs}")
+            steps.append(f"So {b}^({_clean_pow(exp_lhs)}) = {b}^{exp_rhs}")
+            steps.append("Since the bases match, the indices must be equal:")
+            eq = sp.Eq(exp_lhs, exp_rhs)
+            steps.append(f"{_clean_pow(exp_lhs)} = {exp_rhs}")
+            sol = sp.solve(eq, x)
+            if not sol:
+                return _fail("Could not solve for x from the matched indices.")
+            for s in sol:
+                steps.append(f"x = {_mathstr(sp.nsimplify(s))}")
+            result = ", ".join(f"x = {_mathstr(sp.nsimplify(s))}" for s in sol)
+            return _ok(steps, result)
+
+        # Fall back to logarithms.
+        steps.append("The two sides don't share an obvious common base, so take logarithms of "
+                      "both sides:")
+        steps.append(f"log({_clean_pow(lhs)}) = log({_clean_pow(rhs)})")
+
+        if lb is not None and le.has(x):
+            # lhs = base^(linear expr in x); solve the exponent directly
+            # ourselves so the final answer matches the derivation shown,
+            # rather than letting sp.solve pick a differently-formatted
+            # but equivalent answer.
+            steps.append(f"{_clean_pow(le)} x log({lb}) = log({_clean_pow(rhs)})")
+            target = sp.log(rhs) / sp.log(lb)
+            steps.append(f"{_clean_pow(le)} = log({_clean_pow(rhs)})/log({lb})")
+            le_poly = sp.Poly(le, x)
+            if le_poly.degree() == 1:
+                p, q = le_poly.all_coeffs()
+            else:
+                p, q = sp.Integer(1), sp.Integer(0)
+            sol_val = (target - q) / p
+            if p != 1:
+                steps.append(f"x = ( log({_clean_pow(rhs)})/log({lb}) - ({q}) ) / {p}")
+            sol = [sol_val]
+        else:
+            sol = sp.solve(sp.Eq(sp.log(lhs), sp.log(rhs)), x) or sp.solve(sp.Eq(lhs, rhs), x)
+
+        if not sol:
+            return _fail("Could not solve this equation -- please check it's set up correctly.")
+        for s in sol:
+            sv = sp.nsimplify(s)
+            steps.append(f"x = {_mathstr(sv)}  (~= {sp.N(sv, 6)})")
+        result = ", ".join(f"x = {_mathstr(sp.nsimplify(s))}" for s in sol)
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+
+# ------------------------------------------------------------- LOGARITHMS --
+
+def _clean_log(s):
+    """Like _clean_pow, but keeps a space before log/sqrt/ln so '3log(x)'
+    reads as '3 log(x)' instead of merging together."""
+    s = str(s).replace("**", "^")
+    s = re.sub(r"\*(log|sqrt|ln)\(", r" \1(", s)
+    s = s.replace("*", "")
+    return s
+
+
+def _parse_log(expr_str):
+    """Parse an expression that may contain log_b(x) notation (custom base)
+    by converting it to sympy's log(x, b) form first."""
+    s = expr_str.strip()
+    # log_b(...) -> a placeholder sympy can parse: use Function-call style log(x, b)
+    s = re.sub(r"log_(\w+)\(", r"log(", s)  # base handled separately per-call below
+    return s
+
+
+def log_evaluate(expr_str, base=None):
+    """Evaluate a logarithm, e.g. log_2(8), log(100) [base 10], ln(x) [base e]."""
+    try:
+        expr_str = _require(expr_str, "the expression")
+        m = re.match(r"^\s*log_(\w+)\((.+)\)\s*$", expr_str.strip())
+        if m:
+            base_val = sp.nsimplify(m.group(1))
+            arg_str = m.group(2)
+        elif base not in (None, ""):
+            base_val = sp.nsimplify(base)
+            inner = re.match(r"^\s*(?:log|ln)\((.+)\)\s*$", expr_str.strip())
+            arg_str = inner.group(1) if inner else expr_str
+        elif expr_str.strip().lower().startswith("ln("):
+            base_val = sp.E
+            arg_str = expr_str.strip()[3:-1]
+        else:
+            base_val = sp.Integer(10)
+            inner = re.match(r"^\s*log\((.+)\)\s*$", expr_str.strip())
+            arg_str = inner.group(1) if inner else expr_str
+
+        arg = _parse(arg_str, {"x": x, "y": y, "e": sp.E, "pi": sp.pi})
+        base_disp = "e" if base_val == sp.E else _mathstr(base_val)
+        arg_disp = "e" if arg == sp.E else _clean_log(arg)
+        steps = [f"log base {base_disp} of {arg_disp}"]
+
+        numeric = sp.N(sp.log(arg) / sp.log(base_val), 15)
+        rounded_int = round(float(numeric))
+        if arg.is_number and abs(float(numeric) - rounded_int) < 1e-9 and \
+                sp.simplify(base_val ** rounded_int - arg) == 0:
+            steps.append(f"= {rounded_int}  (since {base_disp}^{rounded_int} = {arg_disp})")
+            return _ok(steps, str(rounded_int))
+
+        if arg.is_number:
+            rat = sp.nsimplify(float(numeric), rational=True, tolerance=1e-9)
+            if getattr(rat, "q", 1) <= 12 and abs(float(rat) - float(numeric)) < 1e-9 and \
+                    sp.simplify(base_val ** rat - arg) == 0:
+                steps.append(f"= {_mathstr(rat)}  (since {base_disp}^({_mathstr(rat)}) = {arg_disp})")
+                return _ok(steps, _mathstr(rat))
+            steps.append(f"~= {sp.N(numeric, 6)}  (not a whole/simple number -- this is the "
+                          "decimal approximation)")
+            return _ok(steps, f"~= {sp.N(numeric, 6)}")
+
+        val = sp.logcombine(sp.log(arg, base_val), force=True)
+        steps.append(f"= {_clean_log(val)}")
+        return _ok(steps, _clean_log(val))
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def log_change_of_base(value, from_base, to_base=10):
+    """log_b(a) = log_c(a) / log_c(b) -- change of base formula."""
+    try:
+        value = sp.nsimplify(_require(value, "the number (a)"))
+        from_base = sp.nsimplify(_require(from_base, "the original base (b)"))
+        to_base = sp.nsimplify(to_base) if to_base not in (None, "") else sp.Integer(10)
+        steps = [
+            "Change of base formula: log_b(a) = log_c(a) / log_c(b)",
+            f"a = {value}, b = {from_base}, new base c = {to_base}",
+            f"log_{from_base}({value}) = log_{to_base}({value}) / log_{to_base}({from_base})",
+        ]
+        result_val = sp.log(value, to_base) / sp.log(from_base, to_base)
+        result_val = sp.simplify(result_val)
+        steps.append(f"= {_mathstr(sp.N(result_val, 6))}")
+        exact = sp.nsimplify(sp.log(value) / sp.log(from_base))
+        if exact.is_rational:
+            steps.append(f"(exactly {_mathstr(exact)})")
+            return _ok(steps, _mathstr(exact))
+        return _ok(steps, f"~= {sp.N(result_val, 6)}")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def log_laws_simplify(expr_str):
+    """Simplify/expand a log expression using the laws of logarithms."""
+    try:
+        expr_str = _require(expr_str, "the expression")
+        expr = _parse(expr_str, {"x": x, "log": sp.log, "ln": sp.log})
+        steps = [f"Expression: {_clean_log(expr)}"]
+
+        expanded = sp.expand_log(expr, force=True)
+        combined = sp.logcombine(expr, force=True)
+
+        if expanded != expr:
+            steps.append("Expanding using the laws log(ab) = log(a) + log(b), "
+                          "log(a/b) = log(a) - log(b), log(a^n) = n.log(a):")
+            steps.append(f"= {_clean_log(expanded)}")
+            return _ok(steps, _clean_log(expanded))
+        elif combined != expr:
+            steps.append("Combining using the laws of logarithms:")
+            steps.append(f"= {_clean_log(combined)}")
+            return _ok(steps, _clean_log(combined))
+        else:
+            simplified = sp.simplify(expr)
+            steps.append(f"Simplified: {_clean_log(simplified)}")
+            return _ok(steps, _clean_log(simplified))
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def log_solve_equation(expr_str):
+    """Solve an equation involving logarithms, e.g. log_2(x) = 5, or
+    log(x+1) + log(x-1) = log(8)."""
+    try:
+        expr_str = _require(expr_str, "the equation")
+        if "=" not in expr_str:
+            return _fail("Please give a full equation with an '=' sign, e.g. log_2(x) = 5.")
+        lhs_s, rhs_s = expr_str.split("=", 1)
+
+        def to_log_expr(s):
+            s = s.strip()
+            m = re.match(r"^log_(\w+)\((.+)\)$", s)
+            if m:
+                base_val = sp.nsimplify(m.group(1))
+                arg = _parse(m.group(2))
+                return sp.log(arg, base_val)
+            return _parse(s, {"x": x, "log": sp.log, "ln": sp.log})
+
+        lhs = to_log_expr(lhs_s)
+        rhs = to_log_expr(rhs_s)
+        steps = [f"Equation: {_clean_log(lhs)} = {_clean_log(rhs)}"]
+
+        combined_eq = sp.Eq(sp.logcombine(lhs - rhs, force=True), 0)
+        if combined_eq.lhs != lhs - rhs:
+            steps.append("Combine the logarithms on one side using the laws of logarithms:")
+            steps.append(f"{_clean_log(combined_eq.lhs)} = 0")
+
+        sol = sp.solve(combined_eq, x)
+        if not sol:
+            sol = sp.solve(sp.Eq(lhs, rhs), x)
+        if not sol:
+            return _fail("Could not solve this equation -- please check it's set up correctly.")
+
+        # Reject solutions that would take a log of a non-positive number.
+        valid = []
+        log_args = [a.args[0] for a in (lhs, rhs) if a.has(sp.log) for a in a.atoms(sp.log)]
+        for s in sol:
+            if not s.is_real:
+                continue
+            ok = True
+            for la in log_args:
+                v = la.subs(x, s)
+                if v.is_number and v <= 0:
+                    ok = False
+                    break
+            if ok:
+                valid.append(s)
+
+        if not valid:
+            return _fail("No valid solution -- every candidate value makes one of the logarithms "
+                         "undefined (log of a non-positive number).")
+
+        steps.append("Solve for x (rejecting any solution that makes a log argument <= 0):")
+        for s in valid:
+            sv = sp.nsimplify(s)
+            steps.append(f"x = {_mathstr(sv)}")
+        result = ", ".join(f"x = {_mathstr(sp.nsimplify(s))}" for s in valid)
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+
+# ----------------------------------------------------------------- SURDS --
+
+def _clean_surd(s):
+    """Like _mathstr, but also strips the '*' between a coefficient and a
+    surd/bracket so '5*sqrt(2)' reads as '5sqrt(2)' -> '5' + radical + '(2)'."""
+    return _mathstr(s).replace("*", "")
+
+
+def surd_simplify(expr_str):
+    """Simplify a surd, e.g. sqrt(50) -> 5*sqrt(2)."""
+    try:
+        expr_str = _require(expr_str, "the surd expression")
+        expr = _parse(expr_str)
+        steps = [f"Expression: {_clean_surd(expr)}"]
+
+        simplified = sp.sqrtdenest(sp.radsimp(sp.simplify(expr)))
+        simplified = sp.nsimplify(simplified)
+
+        # Try to narrate factoring out the largest perfect square, for a
+        # single sqrt(N) case specifically.
+        if isinstance(expr, sp.Pow) and expr.exp == sp.Rational(1, 2) and expr.base.is_Integer and expr.base > 0:
+            n = int(expr.base)
+            biggest_sq = 1
+            biggest_rest = n
+            for k in range(2, int(n ** 0.5) + 1):
+                if n % (k * k) == 0:
+                    if k * k > biggest_sq:
+                        biggest_sq = k * k
+                        biggest_rest = n // (k * k)
+            if biggest_sq > 1:
+                root = int(biggest_sq ** 0.5)
+                steps.append(f"Find the largest perfect square factor of {n}: {biggest_sq} x {biggest_rest} = {n}")
+                steps.append(f"\u221a{n} = \u221a({biggest_sq} x {biggest_rest}) = \u221a{biggest_sq} x \u221a{biggest_rest} "
+                              f"= {root}\u221a{biggest_rest}" if biggest_rest > 1 else f"\u221a{n} = {root}")
+
+        steps.append(f"Simplified: {_clean_surd(simplified)}")
+        return _ok(steps, _clean_surd(simplified))
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def surd_arithmetic(expr_str):
+    """Add, subtract, multiply, or divide surd expressions, e.g.
+    2*sqrt(3) + 5*sqrt(3), or sqrt(2)*sqrt(8), or sqrt(12)+sqrt(27)."""
+    try:
+        expr_str = _require(expr_str, "the expression")
+        expr = _parse(expr_str)
+        steps = [f"Expression: {_clean_surd(expr)}"]
+
+        if isinstance(expr, sp.Add):
+            steps.append("Simplify each surd term first:")
+            parts = []
+            for term in expr.args:
+                simp = sp.nsimplify(sp.sqrtdenest(sp.radsimp(sp.simplify(term))))
+                steps.append(f"  {_clean_surd(term)} = {_clean_surd(simp)}")
+                parts.append(simp)
+            combined = sp.nsimplify(sp.radsimp(sum(parts)))
+            steps.append("Now combine like surds (same number under the root):")
+            steps.append(f"= {_clean_surd(combined)}")
+            return _ok(steps, _clean_surd(combined))
+        else:
+            simplified = sp.nsimplify(sp.sqrtdenest(sp.radsimp(sp.simplify(expr))))
+            steps.append(f"Multiply/divide and simplify: {_clean_surd(simplified)}")
+            return _ok(steps, _clean_surd(simplified))
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def surd_rationalize(expr_str):
+    """Rationalise the denominator of a fraction involving surds, handling
+    both a single-surd denominator and a binomial surd denominator."""
+    try:
+        expr_str = _require(expr_str, "the fraction")
+        expr = _parse(expr_str)
+        steps = [f"Expression: {_clean_surd(expr)}"]
+
+        frac = sp.fraction(sp.together(expr))
+        num, den = frac
+        if den == 1:
+            return _fail("This doesn't have a surd denominator to rationalise.")
+
+        steps.append(f"Numerator: {_clean_surd(num)}, Denominator: {_clean_surd(den)}")
+
+        if isinstance(den, sp.Add) and len(den.args) == 2:
+            a, b = den.args
+            # Pick whichever sign gives a positive rational denominator
+            # after multiplying -- the conventional textbook form.
+            conj_ab = a - b
+            if sp.expand(den * conj_ab).is_number and sp.expand(den * conj_ab) < 0:
+                conjugate = b - a
+            else:
+                conjugate = conj_ab
+            steps.append(f"The denominator is a binomial surd, so multiply top and bottom "
+                          f"by its conjugate, {_clean_surd(conjugate)}:")
+            new_num = sp.expand(num * conjugate)
+            new_den = sp.expand(den * conjugate)
+            steps.append(f"= [{_clean_surd(num)} x ({_clean_surd(conjugate)})] / "
+                          f"[({_clean_surd(den)})({_clean_surd(conjugate)})]")
+            steps.append(f"= ({_clean_surd(new_num)}) / {_clean_surd(new_den)}")
+            result_expr = sp.nsimplify(sp.simplify(new_num / new_den))
+        else:
+            steps.append("Multiply top and bottom by the surd in the denominator so it "
+                          "becomes a whole number:")
+            new_num = sp.expand(num * den)
+            new_den = sp.expand(den * den)
+            steps.append(f"= [{_clean_surd(num)} x {_clean_surd(den)}] / [{_clean_surd(den)} x {_clean_surd(den)}]")
+            steps.append(f"= ({_clean_surd(new_num)}) / {_clean_surd(new_den)}")
+            result_expr = sp.nsimplify(sp.simplify(new_num / new_den))
+
+        result_expr = sp.nsimplify(sp.radsimp(result_expr))
+        steps.append(f"Simplified: {_clean_surd(result_expr)}")
+        return _ok(steps, _clean_surd(result_expr))
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+

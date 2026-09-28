@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Indices</h1>
+
+<div class="tabs">
+  <div class="tab active" data-tab="mult" onclick="showTab('mult')">a^m x a^n</div>
+  <div class="tab" data-tab="div" onclick="showTab('div')">a^m / a^n</div>
+  <div class="tab" data-tab="pow" onclick="showTab('pow')">(a^m)^n</div>
+  <div class="tab" data-tab="eval" onclick="showTab('eval')">Evaluate / Simplify</div>
+  <div class="tab" data-tab="solve" onclick="showTab('solve')">Solve for x</div>
+</div>
+
+<div id="mult" class="panel active card">
+  <h2>a^m &times; a^n = a^(m+n)</h2>
+  <div class="two-col">
+    <div><label>Base (a)</label><input type="text" id="im_a" placeholder="2"></div>
+    <div><label>m</label><input type="text" id="im_m" placeholder="3"></div>
+    <div><label>n</label><input type="text" id="im_n" placeholder="4"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/indices/multiply', {base: document.getElementById('im_a').value, m: document.getElementById('im_m').value, n: document.getElementById('im_n').value}, 'im_out')">Solve</button>
+  <div id="im_out"></div>
+</div>
+
+<div id="div" class="panel card">
+  <h2>a^m / a^n = a^(m-n)</h2>
+  <div class="two-col">
+    <div><label>Base (a)</label><input type="text" id="id_a" placeholder="3"></div>
+    <div><label>m</label><input type="text" id="id_m" placeholder="5"></div>
+    <div><label>n</label><input type="text" id="id_n" placeholder="2"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/indices/divide', {base: document.getElementById('id_a').value, m: document.getElementById('id_m').value, n: document.getElementById('id_n').value}, 'id_out')">Solve</button>
+  <div id="id_out"></div>
+</div>
+
+<div id="pow" class="panel card">
+  <h2>(a^m)^n = a^(m x n)</h2>
+  <div class="two-col">
+    <div><label>Base (a)</label><input type="text" id="ip_a" placeholder="2"></div>
+    <div><label>m</label><input type="text" id="ip_m" placeholder="3"></div>
+    <div><label>n</label><input type="text" id="ip_n" placeholder="2"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/indices/power', {base: document.getElementById('ip_a').value, m: document.getElementById('ip_m').value, n: document.getElementById('ip_n').value}, 'ip_out')">Solve</button>
+  <div id="ip_out"></div>
+</div>
+
+<div id="eval" class="panel card">
+  <h2>Evaluate / Simplify an Expression</h2>
+  <p class="hint">e.g. 2^3 * 2^-5, or (x^2)^3, or x^5/x^2</p>
+  <label>Expression</label>
+  <input type="text" id="ie_expr" placeholder="2^3 * 2^-5">
+  <button onclick="postSolve('/api/solve/indices/evaluate', {expr: document.getElementById('ie_expr').value}, 'ie_out')">Solve</button>
+  <div id="ie_out"></div>
+</div>
+
+<div id="solve" class="panel card">
+  <h2>Solve for x (unknown in the index)</h2>
+  <p class="hint">e.g. 2^(x+1) = 16, or 5^x = 10</p>
+  <label>Equation</label>
+  <input type="text" id="is_expr" placeholder="2^(x+1) = 16">
+  <button onclick="postSolve('/api/solve/indices/solve', {expr: document.getElementById('is_expr').value}, 'is_out')">Solve</button>
+  <div id="is_out"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+{% endblock %}

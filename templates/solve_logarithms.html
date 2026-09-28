@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Logarithms</h1>
+
+<div class="tabs">
+  <div class="tab active" data-tab="eval" onclick="showTab('eval')">Evaluate</div>
+  <div class="tab" data-tab="cob" onclick="showTab('cob')">Change of Base</div>
+  <div class="tab" data-tab="laws" onclick="showTab('laws')">Laws of Logarithms</div>
+  <div class="tab" data-tab="solve" onclick="showTab('solve')">Solve an Equation</div>
+</div>
+
+<div id="eval" class="panel active card">
+  <h2>Evaluate a Logarithm</h2>
+  <p class="hint">e.g. log_2(8), log(100) [base 10], ln(x) [base e]</p>
+  <label>Expression</label>
+  <input type="text" id="le_expr" placeholder="log_2(8)">
+  <button onclick="postSolve('/api/solve/logarithms/evaluate', {expr: document.getElementById('le_expr').value}, 'le_out')">Solve</button>
+  <div id="le_out"></div>
+</div>
+
+<div id="cob" class="panel card">
+  <h2>Change of Base</h2>
+  <p class="hint">log_b(a) = log_c(a) / log_c(b)</p>
+  <div class="two-col">
+    <div><label>Number (a)</label><input type="text" id="lc_a" placeholder="8"></div>
+    <div><label>Original base (b)</label><input type="text" id="lc_b" placeholder="2"></div>
+    <div><label>New base (c) -- default 10</label><input type="text" id="lc_c" placeholder="10"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/logarithms/change-of-base', {value: document.getElementById('lc_a').value, from_base: document.getElementById('lc_b').value, to_base: document.getElementById('lc_c').value}, 'lc_out')">Solve</button>
+  <div id="lc_out"></div>
+</div>
+
+<div id="laws" class="panel card">
+  <h2>Laws of Logarithms</h2>
+  <p class="hint">Expands or combines using log(ab)=log(a)+log(b), log(a/b)=log(a)-log(b), log(a^n)=n.log(a)</p>
+  <label>Expression</label>
+  <input type="text" id="ll_expr" placeholder="log(x*y)">
+  <button onclick="postSolve('/api/solve/logarithms/laws', {expr: document.getElementById('ll_expr').value}, 'll_out')">Solve</button>
+  <div id="ll_out"></div>
+</div>
+
+<div id="solve" class="panel card">
+  <h2>Solve a Logarithmic Equation</h2>
+  <p class="hint">e.g. log_2(x) = 5, or log(x+1) + log(x-1) = log(8)</p>
+  <label>Equation</label>
+  <input type="text" id="ls_expr" placeholder="log_2(x) = 5">
+  <button onclick="postSolve('/api/solve/logarithms/solve', {expr: document.getElementById('ls_expr').value}, 'ls_out')">Solve</button>
+  <div id="ls_out"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+{% endblock %}

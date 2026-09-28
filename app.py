@@ -76,6 +76,9 @@ TOPIC_LABELS = {
     "sequences": "Sequences",
     "sets": "Sets",
     "trigonometry": "Trigonometry",
+    "indices": "Indices",
+    "logarithms": "Logarithms",
+    "surds": "Surds",
 }
 
 
@@ -535,6 +538,81 @@ def api_trigonometry(sub):
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
 
     db.log_attempt(sid, "trigonometry", sub, input_summary=summary, correct=None)
+    return jsonify(res)
+
+
+@app.route("/api/solve/indices/<sub>", methods=["POST"])
+@student_required
+def api_indices(sub):
+    data = request.get_json(force=True)
+    sid = session["student_id"]
+
+    if sub == "multiply":
+        res = solvers.indices_law_multiply(data.get("base", ""), data.get("m"), data.get("n"))
+        summary = f'a={data.get("base")}, m={data.get("m")}, n={data.get("n")}'
+    elif sub == "divide":
+        res = solvers.indices_law_divide(data.get("base", ""), data.get("m"), data.get("n"))
+        summary = f'a={data.get("base")}, m={data.get("m")}, n={data.get("n")}'
+    elif sub == "power":
+        res = solvers.indices_law_power(data.get("base", ""), data.get("m"), data.get("n"))
+        summary = f'a={data.get("base")}, m={data.get("m")}, n={data.get("n")}'
+    elif sub == "evaluate":
+        res = solvers.indices_evaluate(data.get("expr", ""))
+        summary = data.get("expr", "")
+    elif sub == "solve":
+        res = solvers.indices_solve_equation(data.get("expr", ""))
+        summary = data.get("expr", "")
+    else:
+        return jsonify({"ok": False, "error": "Unknown solver."}), 400
+
+    db.log_attempt(sid, "indices", sub, input_summary=summary, correct=None)
+    return jsonify(res)
+
+
+@app.route("/api/solve/logarithms/<sub>", methods=["POST"])
+@student_required
+def api_logarithms(sub):
+    data = request.get_json(force=True)
+    sid = session["student_id"]
+
+    if sub == "evaluate":
+        res = solvers.log_evaluate(data.get("expr", ""), data.get("base") or None)
+        summary = f'{data.get("expr")}, base={data.get("base")}'
+    elif sub == "change-of-base":
+        res = solvers.log_change_of_base(data.get("value"), data.get("from_base"), data.get("to_base") or 10)
+        summary = f'value={data.get("value")}, from={data.get("from_base")}, to={data.get("to_base")}'
+    elif sub == "laws":
+        res = solvers.log_laws_simplify(data.get("expr", ""))
+        summary = data.get("expr", "")
+    elif sub == "solve":
+        res = solvers.log_solve_equation(data.get("expr", ""))
+        summary = data.get("expr", "")
+    else:
+        return jsonify({"ok": False, "error": "Unknown solver."}), 400
+
+    db.log_attempt(sid, "logarithms", sub, input_summary=summary, correct=None)
+    return jsonify(res)
+
+
+@app.route("/api/solve/surds/<sub>", methods=["POST"])
+@student_required
+def api_surds(sub):
+    data = request.get_json(force=True)
+    sid = session["student_id"]
+
+    if sub == "simplify":
+        res = solvers.surd_simplify(data.get("expr", ""))
+        summary = data.get("expr", "")
+    elif sub == "arithmetic":
+        res = solvers.surd_arithmetic(data.get("expr", ""))
+        summary = data.get("expr", "")
+    elif sub == "rationalize":
+        res = solvers.surd_rationalize(data.get("expr", ""))
+        summary = data.get("expr", "")
+    else:
+        return jsonify({"ok": False, "error": "Unknown solver."}), 400
+
+    db.log_attempt(sid, "surds", sub, input_summary=summary, correct=None)
     return jsonify(res)
 
 

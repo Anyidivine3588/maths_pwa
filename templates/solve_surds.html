@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Surds</h1>
+
+<div class="tabs">
+  <div class="tab active" data-tab="simp" onclick="showTab('simp')">Simplify</div>
+  <div class="tab" data-tab="arith" onclick="showTab('arith')">Add / Subtract / Multiply / Divide</div>
+  <div class="tab" data-tab="rat" onclick="showTab('rat')">Rationalise Denominator</div>
+</div>
+
+<div id="simp" class="panel active card">
+  <h2>Simplify a Surd</h2>
+  <p class="hint">e.g. sqrt(50) -&gt; 5sqrt(2)</p>
+  <label>Expression</label>
+  <input type="text" id="ss_expr" placeholder="sqrt(50)">
+  <button onclick="postSolve('/api/solve/surds/simplify', {expr: document.getElementById('ss_expr').value}, 'ss_out')">Solve</button>
+  <div id="ss_out"></div>
+</div>
+
+<div id="arith" class="panel card">
+  <h2>Surd Arithmetic</h2>
+  <p class="hint">e.g. 2*sqrt(3) + 5*sqrt(3), or sqrt(12) + sqrt(27), or sqrt(2)*sqrt(8)</p>
+  <label>Expression</label>
+  <input type="text" id="sa_expr" placeholder="sqrt(12) + sqrt(27)">
+  <button onclick="postSolve('/api/solve/surds/arithmetic', {expr: document.getElementById('sa_expr').value}, 'sa_out')">Solve</button>
+  <div id="sa_out"></div>
+</div>
+
+<div id="rat" class="panel card">
+  <h2>Rationalise the Denominator</h2>
+  <p class="hint">Works for both a single surd (e.g. 1/sqrt(2)) and a binomial surd
+     (e.g. 1/(2+sqrt(3))) denominator.</p>
+  <label>Expression</label>
+  <input type="text" id="sr_expr" placeholder="1/(2+sqrt(3))">
+  <button onclick="postSolve('/api/solve/surds/rationalize', {expr: document.getElementById('sr_expr').value}, 'sr_out')">Solve</button>
+  <div id="sr_out"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+{% endblock %}
