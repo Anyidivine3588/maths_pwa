@@ -702,11 +702,25 @@ def coordinate_geometry(x1, y1, x2, y2):
 
 # ------------------------------------------------------------------ GRAPHS --
 
+def _clean_equation_for_function(s):
+    """Tolerate a student writing the full equation (y = 2x+3, f(x)=2x+3,
+    or even 2x+3=0) instead of just the bare expression in x."""
+    s = s.strip()
+    if "=" in s:
+        lhs, rhs = s.split("=", 1)
+        lhs_clean = lhs.strip().lower().replace(" ", "")
+        if lhs_clean in ("y", "f(x)", "g(x)", "f", "g", "fx", "gx"):
+            return rhs.strip()
+        return f"({lhs.strip()}) - ({rhs.strip()})"
+    return s
+
+
 def table_of_values(expr_str, x_min, x_max, step=1):
     try:
         expr_str = _require(expr_str, "f(x)")
         x_min = _require(x_min, "x min")
         x_max = _require(x_max, "x max")
+        expr_str = _clean_equation_for_function(expr_str)
         expr = _parse(expr_str, {"x": x})
         xs = []
         val = sp.nsimplify(x_min)
@@ -788,6 +802,10 @@ def plot_functions_png(expr_str, expr2_str=None, x_min=-10, x_max=10,
 
     fig, ax = plt.subplots(figsize=(6, 5))
     xs = np.linspace(x_min, x_max, 400)
+
+    expr_str = _clean_equation_for_function(expr_str)
+    if expr2_str:
+        expr2_str = _clean_equation_for_function(expr2_str)
 
     def safe_eval(estr):
         expr = _parse(estr, {"x": x})
