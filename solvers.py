@@ -38,6 +38,10 @@ def _normalize_expr(s):
         s = s.replace(sup, f"^{digit}")
     # A lone capital X is almost always meant to be the variable x
     s = re.sub(r"(?<![A-Za-z])X(?![A-Za-z])", "x", s)
+    # Radical symbol -> sqrt(...), so typing the actual root sign works too
+    s = re.sub(r"\u221a\s*\(", "sqrt(", s)
+    s = re.sub(r"\u221a\s*(\d+(?:\.\d+)?)", r"sqrt(\1)", s)
+    s = re.sub(r"\u221a\s*([a-zA-Z])(?!\w)", r"sqrt(\1)", s)
     return s.strip()
 
 
@@ -1877,7 +1881,8 @@ def indices_solve_equation(expr_str):
             b, exp_lhs, exp_rhs = same_base
             steps.append(f"Rewrite {_mathstr(rhs)} as a power of {b}: {_mathstr(rhs)} = {b}^{exp_rhs}")
             steps.append(f"So {b}^({_clean_pow(exp_lhs)}) = {b}^{exp_rhs}")
-            steps.append("Since the bases match, the indices must be equal:")
+            steps.append("Since the bases match, the indices must be equal "
+                          "(this can be solved exactly -- no calculator needed):")
             eq = sp.Eq(exp_lhs, exp_rhs)
             steps.append(f"{_clean_pow(exp_lhs)} = {exp_rhs}")
             sol = sp.solve(eq, x)
@@ -1889,8 +1894,9 @@ def indices_solve_equation(expr_str):
             return _ok(steps, result)
 
         # Fall back to logarithms.
-        steps.append("The two sides don't share an obvious common base, so take logarithms of "
-                      "both sides:")
+        steps.append("The two sides don't share an obvious common base, so this needs "
+                      "logarithms (or log tables) -- not solvable exactly by the common-base "
+                      "method alone. Take logarithms of both sides:")
         steps.append(f"log({_clean_pow(lhs)}) = log({_clean_pow(rhs)})")
 
         if lb is not None and le.has(x):
@@ -2110,6 +2116,74 @@ def log_solve_equation(expr_str):
             steps.append(f"x = {_mathstr(sv)}")
         result = ", ".join(f"x = {_mathstr(sp.nsimplify(s))}" for s in valid)
         return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def log_evaluate_tables(number_str):
+    """WAEC-style 'four-figure table' method for base-10 logarithms --
+    the no-calculator way logs are found in the exam: write the number in
+    standard form A x 10^c, then log(N) = c (characteristic) + log10(A)
+    (mantissa, the part that would be read from a log table)."""
+    try:
+        number_str = _require(number_str, "the number")
+        n_val = float(_parse(number_str))
+        if n_val <= 0:
+            return _fail("Logarithms are only defined for positive numbers.")
+        n_disp = number_str.strip()
+
+        import math
+        c = math.floor(math.log10(n_val))
+        A = n_val / (10 ** c)
+        if A >= 10:
+            A /= 10
+            c += 1
+        elif A < 1:
+            A *= 10
+            c -= 1
+
+        mantissa = round(math.log10(A), 4)
+        steps = [f"Write {n_disp} in standard form: {n_disp} = {A:.4g} x 10^{c}"]
+        if c >= 0:
+            steps.append(f"Characteristic = {c} (one less than the number of digits before "
+                          "the decimal point)")
+        else:
+            steps.append(f"Characteristic = {c} (negative, since the number is less than 1 -- "
+                          f"written as {abs(c)}-bar in log-table notation, with the mantissa "
+                          "still positive)")
+        steps.append(f"Mantissa = log10({A:.4g}) = {mantissa:.4f}  (this is the part you'd read "
+                      "off a 4-figure table)")
+        exact = round(c + mantissa, 4)
+        steps.append(f"log10({n_disp}) = characteristic + mantissa = {c} + {mantissa:.4f} = {exact}")
+        return _ok(steps, f"log10({n_disp}) = {exact}")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def log_antilog(log_value_str):
+    """WAEC-style antilog (using the antilog table method): given a
+    logarithm value, split it into characteristic + mantissa, find the
+    antilog of the mantissa, then place the decimal point using the
+    characteristic. Uses the rounded (4-figure-table-precision) value
+    throughout, matching what a student doing this by hand would get."""
+    try:
+        log_value_str = _require(log_value_str, "the logarithm value")
+        val = float(_parse(log_value_str))
+        import math
+        c = math.floor(val)
+        mantissa = round(val - c, 4)
+        steps = [f"Log value = {val} = characteristic {c} + mantissa {mantissa:.4f}"]
+        A = round(10 ** mantissa, 4)
+        steps.append(f"Antilog of the mantissa: 10^{mantissa:.4f} = {A}  (this is what "
+                      "you'd read off an antilog table)")
+        result_val = round(A * (10 ** c), 6)
+        steps.append(f"The characteristic ({c}) tells you where to place the decimal point:")
+        steps.append(f"Number = {A} x 10^{c} = {result_val}")
+        return _ok(steps, f"{result_val}")
     except _MissingInput as e:
         return _fail(str(e))
     except Exception as e:

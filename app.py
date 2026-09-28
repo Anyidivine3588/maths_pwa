@@ -587,6 +587,12 @@ def api_logarithms(sub):
     elif sub == "solve":
         res = solvers.log_solve_equation(data.get("expr", ""))
         summary = data.get("expr", "")
+    elif sub == "tables":
+        res = solvers.log_evaluate_tables(data.get("number", ""))
+        summary = data.get("number", "")
+    elif sub == "antilog":
+        res = solvers.log_antilog(data.get("value", ""))
+        summary = data.get("value", "")
     else:
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
 

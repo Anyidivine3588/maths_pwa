@@ -10,28 +10,28 @@
 
 <div id="simp" class="panel active card">
   <h2>Simplify a Surd</h2>
-  <p class="hint">e.g. sqrt(50) -&gt; 5sqrt(2)</p>
+  <p class="hint">e.g. √50 -&gt; 5√2</p>
   <label>Expression</label>
-  <input type="text" id="ss_expr" placeholder="sqrt(50)">
+  <input type="text" id="ss_expr" placeholder="√50">
   <button onclick="postSolve('/api/solve/surds/simplify', {expr: document.getElementById('ss_expr').value}, 'ss_out')">Solve</button>
   <div id="ss_out"></div>
 </div>
 
 <div id="arith" class="panel card">
   <h2>Surd Arithmetic</h2>
-  <p class="hint">e.g. 2*sqrt(3) + 5*sqrt(3), or sqrt(12) + sqrt(27), or sqrt(2)*sqrt(8)</p>
+  <p class="hint">e.g. 2√3 + 5√3, or √12 + √27, or √2 × √8</p>
   <label>Expression</label>
-  <input type="text" id="sa_expr" placeholder="sqrt(12) + sqrt(27)">
+  <input type="text" id="sa_expr" placeholder="√12 + √27">
   <button onclick="postSolve('/api/solve/surds/arithmetic', {expr: document.getElementById('sa_expr').value}, 'sa_out')">Solve</button>
   <div id="sa_out"></div>
 </div>
 
 <div id="rat" class="panel card">
   <h2>Rationalise the Denominator</h2>
-  <p class="hint">Works for both a single surd (e.g. 1/sqrt(2)) and a binomial surd
-     (e.g. 1/(2+sqrt(3))) denominator.</p>
+  <p class="hint">Works for both a single surd (e.g. 1/√2) and a binomial surd
+     (e.g. 1/(2+√3)) denominator.</p>
   <label>Expression</label>
-  <input type="text" id="sr_expr" placeholder="1/(2+sqrt(3))">
+  <input type="text" id="sr_expr" placeholder="1/(2+√3)">
   <button onclick="postSolve('/api/solve/surds/rationalize', {expr: document.getElementById('sr_expr').value}, 'sr_out')">Solve</button>
   <div id="sr_out"></div>
 </div>

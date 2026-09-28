@@ -7,6 +7,8 @@
   <div class="tab" data-tab="cob" onclick="showTab('cob')">Change of Base</div>
   <div class="tab" data-tab="laws" onclick="showTab('laws')">Laws of Logarithms</div>
   <div class="tab" data-tab="solve" onclick="showTab('solve')">Solve an Equation</div>
+  <div class="tab" data-tab="tables" onclick="showTab('tables')">Using Log Tables</div>
+  <div class="tab" data-tab="antilog" onclick="showTab('antilog')">Antilog</div>
 </div>
 
 <div id="eval" class="panel active card">
@@ -46,6 +48,26 @@
   <input type="text" id="ls_expr" placeholder="log_2(x) = 5">
   <button onclick="postSolve('/api/solve/logarithms/solve', {expr: document.getElementById('ls_expr').value}, 'ls_out')">Solve</button>
   <div id="ls_out"></div>
+</div>
+
+<div id="tables" class="panel card">
+  <h2>Using Log Tables (base 10, no calculator)</h2>
+  <p class="hint">This is the four-figure-table method exam officers expect when calculators
+     aren't allowed: write the number in standard form, split into characteristic and
+     mantissa, then combine them.</p>
+  <label>Number</label>
+  <input type="text" id="lt_num" placeholder="587">
+  <button onclick="postSolve('/api/solve/logarithms/tables', {number: document.getElementById('lt_num').value}, 'lt_out')">Solve</button>
+  <div id="lt_out"></div>
+</div>
+
+<div id="antilog" class="panel card">
+  <h2>Antilog</h2>
+  <p class="hint">Given a logarithm value, find the original number using the antilog-table method.</p>
+  <label>Log value</label>
+  <input type="text" id="al_val" placeholder="2.7160">
+  <button onclick="postSolve('/api/solve/logarithms/antilog', {value: document.getElementById('al_val').value}, 'al_out')">Solve</button>
+  <div id="al_out"></div>
 </div>
 {% endblock %}
 {% block scripts %}
