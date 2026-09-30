@@ -8,6 +8,7 @@
   <div class="tab" data-tab="pow" onclick="showTab('pow')">(a^m)^n</div>
   <div class="tab" data-tab="eval" onclick="showTab('eval')">Evaluate / Simplify</div>
   <div class="tab" data-tab="solve" onclick="showTab('solve')">Solve for x</div>
+  <div class="tab" data-tab="eqbase" onclick="showTab('eqbase')">Equal Base Method</div>
 </div>
 
 <div id="mult" class="panel active card">
@@ -59,6 +60,18 @@
   <input type="text" id="is_expr" placeholder="2^(x+1) = 16">
   <button onclick="postSolve('/api/solve/indices/solve', {expr: document.getElementById('is_expr').value}, 'is_out')">Solve</button>
   <div id="is_out"></div>
+</div>
+
+<div id="eqbase" class="panel card">
+  <h2>Equal Base Method (no calculator or logs)</h2>
+  <p class="hint">For exponential equations with several power terms multiplied or divided
+     together, e.g. 81^x x 27^(-2x) = 3^(2x+3). Expresses every term as a power of one
+     common base, then equates the indices -- exactly the method exam officers expect
+     when calculators aren't allowed.</p>
+  <label>Equation</label>
+  <input type="text" id="eb_expr" placeholder="81^x * 27^(-2x) = 3^(2x+3)">
+  <button onclick="postSolve('/api/solve/indices/equal-base', {expr: document.getElementById('eb_expr').value}, 'eb_out')">Solve</button>
+  <div id="eb_out"></div>
 </div>
 {% endblock %}
 {% block scripts %}

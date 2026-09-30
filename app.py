@@ -562,6 +562,9 @@ def api_indices(sub):
     elif sub == "solve":
         res = solvers.indices_solve_equation(data.get("expr", ""))
         summary = data.get("expr", "")
+    elif sub == "equal-base":
+        res = solvers.indices_solve_equal_base(data.get("expr", ""))
+        summary = data.get("expr", "")
     else:
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
 
@@ -614,6 +617,9 @@ def api_surds(sub):
         summary = data.get("expr", "")
     elif sub == "rationalize":
         res = solvers.surd_rationalize(data.get("expr", ""))
+        summary = data.get("expr", "")
+    elif sub == "equation":
+        res = solvers.surd_solve_equation(data.get("expr", ""))
         summary = data.get("expr", "")
     else:
         return jsonify({"ok": False, "error": "Unknown solver."}), 400

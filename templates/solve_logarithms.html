@@ -43,7 +43,10 @@
 
 <div id="solve" class="panel card">
   <h2>Solve a Logarithmic Equation</h2>
-  <p class="hint">e.g. log_2(x) = 5, or log(x+1) + log(x-1) = log(8)</p>
+  <p class="hint">e.g. log_2(x) = 5, or log(x-1) + log(x+3) = 2, or log_2(x-2) + log_2(x+2) = 2.
+     A bare "log" means base 10 (the WAEC convention); use log_b(...) for another base.
+     Solved algebraically by combining the logs and converting to exponential form --
+     no calculator or log tables needed.</p>
   <label>Equation</label>
   <input type="text" id="ls_expr" placeholder="log_2(x) = 5">
   <button onclick="postSolve('/api/solve/logarithms/solve', {expr: document.getElementById('ls_expr').value}, 'ls_out')">Solve</button>
