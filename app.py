@@ -79,6 +79,8 @@ TOPIC_LABELS = {
     "indices": "Indices",
     "logarithms": "Logarithms",
     "surds": "Surds",
+    "bearings": "Bearings",
+    "earthgeo": "Longitude & Latitude",
 }
 
 
@@ -625,6 +627,62 @@ def api_surds(sub):
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
 
     db.log_attempt(sid, "surds", sub, input_summary=summary, correct=None)
+    return jsonify(res)
+
+
+@app.route("/api/solve/bearings/<sub>", methods=["POST"])
+@student_required
+def api_bearings(sub):
+    data = request.get_json(force=True)
+    sid = session["student_id"]
+
+    if sub == "convert":
+        res = solvers.bearing_convert(data.get("bearing", ""))
+        summary = data.get("bearing", "")
+    elif sub == "back":
+        res = solvers.bearing_back(data.get("bearing", ""))
+        summary = data.get("bearing", "")
+    elif sub == "journey":
+        res = solvers.bearing_journey(data.get("d1"), data.get("b1"), data.get("d2"), data.get("b2"))
+        summary = f'd1={data.get("d1")}, b1={data.get("b1")}, d2={data.get("d2")}, b2={data.get("b2")}'
+    else:
+        return jsonify({"ok": False, "error": "Unknown solver."}), 400
+
+    db.log_attempt(sid, "bearings", sub, input_summary=summary, correct=None)
+    return jsonify(res)
+
+
+@app.route("/api/solve/earthgeo/<sub>", methods=["POST"])
+@student_required
+def api_earthgeo(sub):
+    data = request.get_json(force=True)
+    sid = session["student_id"]
+
+    if sub == "meridian":
+        res = solvers.earth_distance_meridian(
+            data.get("lat1"), data.get("lat2"), data.get("R") or None,
+            data.get("unit") or "km", data.get("pi_val") or None,
+        )
+        summary = f'lat1={data.get("lat1")}, lat2={data.get("lat2")}, unit={data.get("unit")}'
+    elif sub == "parallel":
+        res = solvers.earth_distance_parallel(
+            data.get("lat"), data.get("long1"), data.get("long2"),
+            data.get("R") or None, data.get("unit") or "km", data.get("pi_val") or None,
+        )
+        summary = f'lat={data.get("lat")}, long1={data.get("long1")}, long2={data.get("long2")}, unit={data.get("unit")}'
+    elif sub == "radius":
+        res = solvers.earth_radius_of_parallel(data.get("lat"), data.get("R") or None)
+        summary = f'lat={data.get("lat")}, R={data.get("R")}'
+    elif sub == "speed":
+        res = solvers.earth_speed(
+            data.get("distance"), data.get("time"),
+            data.get("distance_unit") or "nm", data.get("time_unit") or "hours",
+        )
+        summary = f'distance={data.get("distance")}, time={data.get("time")}'
+    else:
+        return jsonify({"ok": False, "error": "Unknown solver."}), 400
+
+    db.log_attempt(sid, "earthgeo", sub, input_summary=summary, correct=None)
     return jsonify(res)
 
 

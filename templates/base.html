@@ -24,6 +24,8 @@
       <a href="{{ url_for('solve_page', topic='indices') }}">Indices</a>
       <a href="{{ url_for('solve_page', topic='logarithms') }}">Logarithms</a>
       <a href="{{ url_for('solve_page', topic='surds') }}">Surds</a>
+      <a href="{{ url_for('solve_page', topic='bearings') }}">Bearings</a>
+      <a href="{{ url_for('solve_page', topic='earthgeo') }}">Longitude &amp; Latitude</a>
       <a href="{{ url_for('logout') }}">Log out</a>
     {% elif session.get('teacher_id') %}
       <a href="{{ url_for('teacher_dashboard') }}">Teacher Dashboard</a>

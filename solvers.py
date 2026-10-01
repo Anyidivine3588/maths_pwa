@@ -4,6 +4,7 @@ Tkinter desktop app (MathsAssistTk). Each function returns a dict:
     {"steps": [str, ...], "result": str, "ok": bool, "error": str or None}
 """
 import re
+import math
 import sympy as sp
 from sympy.parsing.sympy_parser import (
     parse_expr, standard_transformations, implicit_multiplication_application,
@@ -2857,6 +2858,412 @@ def surd_solve_equation(expr_str):
 
         result = ", ".join(f"x = {_clean_surd(s)}" for s in valid)
         return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+# -------------------------------------------------------------- BEARINGS --
+
+def _bearing_point(origin, bearing_deg, dist):
+    """Coordinates of a point at `bearing_deg` (clockwise from North) and
+    `dist` from origin, with North = +y and East = +x."""
+    r = math.radians(float(bearing_deg))
+    return (origin[0] + float(dist) * math.sin(r), origin[1] + float(dist) * math.cos(r))
+
+
+def _bearing_of(origin, point):
+    """Bearing (0-360, clockwise from North) of `point` as seen from `origin`."""
+    dx = point[0] - origin[0]
+    dy = point[1] - origin[1]
+    return math.degrees(math.atan2(dx, dy)) % 360
+
+
+def _bearing_sketch_png(points_labels, lines):
+    """points_labels: list of (x, y, label). lines: list of (x1,y1,x2,y2,style)
+    where style is 'solid' or 'dashed'. Draws a simple bearing diagram with
+    a North arrow at the first point."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import io, base64
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+
+    xs = [p[0] for p in points_labels]
+    ys = [p[1] for p in points_labels]
+    span = max(max(xs) - min(xs), max(ys) - min(ys), 1)
+    pad = span * 0.35
+
+    for (x1, y1, x2, y2, style) in lines:
+        ax.plot([x1, x2], [y1, y2], linestyle=("--" if style == "dashed" else "-"),
+                color="#1d4ed8" if style != "dashed" else "#64748b", linewidth=2, zorder=2)
+
+    for (x, y, label) in points_labels:
+        ax.plot(x, y, "o", color="#0f172a", markersize=6, zorder=3)
+        ax.annotate(label, (x, y), textcoords="offset points", xytext=(8, 6), fontsize=12, fontweight="bold")
+        # North arrow + dotted north line at every labelled point
+        ax.annotate("", xy=(x, y + span * 0.22), xytext=(x, y),
+                    arrowprops=dict(arrowstyle="->", color="#16a34a", lw=1.4))
+        ax.text(x, y + span * 0.25, "N", color="#16a34a", fontsize=10, ha="center")
+
+    ax.set_xlim(min(xs) - pad, max(xs) + pad)
+    ax.set_ylim(min(ys) - pad, max(ys) + pad * 1.3)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode("ascii")
+
+
+def bearing_convert(bearing_str):
+    """Convert between three-figure bearing (e.g. 030) and compass bearing
+    (e.g. N30E), in either direction."""
+    try:
+        bearing_str = _require(bearing_str, "the bearing")
+        s = bearing_str.strip().upper().replace(" ", "").replace("\u00b0", "")
+        steps = [f"Bearing given: {bearing_str.strip()}"]
+
+        m = re.match(r"^([NS])(\d+(?:\.\d+)?)([EW])$", s)
+        if m:
+            ns, ang, ew = m.group(1), float(m.group(2)), m.group(3)
+            if ns == "N" and ew == "E":
+                three_fig = ang
+                steps.append(f"N{ang}E means {ang} degrees east of north, so the three-figure "
+                              f"bearing is simply {ang}:")
+            elif ns == "S" and ew == "E":
+                three_fig = 180 - ang
+                steps.append(f"S{ang}E means {ang} degrees east of south -- measuring clockwise "
+                              f"from North, that's 180 - {ang}:")
+            elif ns == "S" and ew == "W":
+                three_fig = 180 + ang
+                steps.append(f"S{ang}W means {ang} degrees west of south -- measuring clockwise "
+                              f"from North, that's 180 + {ang}:")
+            else:  # N...W
+                three_fig = 360 - ang
+                steps.append(f"N{ang}W means {ang} degrees west of north -- measuring clockwise "
+                              f"from North, that's 360 - {ang}:")
+            three_fig = three_fig % 360
+            tf_str = f"{int(round(three_fig)):03d}"
+            steps.append(f"Three-figure bearing = {tf_str} degrees")
+            return _ok(steps, f"{tf_str} degrees")
+
+        try:
+            val = float(s) % 360
+        except ValueError:
+            return _fail("Please give a bearing either as a three-figure bearing (e.g. 030) or "
+                         "a compass bearing (e.g. N30E).")
+
+        steps.append(f"Three-figure bearing = {val:g} degrees")
+        if val <= 90:
+            compass = f"N{val:g}E"
+            steps.append(f"Between 000 and 090, so this is N{val:g}E "
+                          f"({val:g} degrees east of north)")
+        elif val <= 180:
+            ang = 180 - val
+            compass = f"S{ang:g}E"
+            steps.append(f"Between 090 and 180, so measure back from South: 180 - {val:g} = {ang:g}. "
+                          f"This is S{ang:g}E")
+        elif val <= 270:
+            ang = val - 180
+            compass = f"S{ang:g}W"
+            steps.append(f"Between 180 and 270, so measure from South: {val:g} - 180 = {ang:g}. "
+                          f"This is S{ang:g}W")
+        else:
+            ang = 360 - val
+            compass = f"N{ang:g}W"
+            steps.append(f"Between 270 and 360, so measure back from North: 360 - {val:g} = {ang:g}. "
+                          f"This is N{ang:g}W")
+        steps.append(f"Compass bearing = {compass}")
+        return _ok(steps, compass)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def bearing_back(bearing):
+    """The back bearing (the bearing of the return journey)."""
+    try:
+        bearing = float(_require(bearing, "the bearing"))
+        steps = [f"Bearing = {bearing:g} degrees"]
+        if bearing < 180:
+            back = bearing + 180
+            steps.append(f"Since the bearing is less than 180, add 180: {bearing:g} + 180 = {back:g}")
+        else:
+            back = bearing - 180
+            steps.append(f"Since the bearing is 180 or more, subtract 180: {bearing:g} - 180 = {back:g}")
+        tf_str = f"{int(round(back)) % 360:03d}"
+        steps.append(f"Back bearing = {tf_str} degrees")
+        return _ok(steps, f"{tf_str} degrees")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def bearing_journey(d1, b1, d2, b2):
+    """The classic WAEC two-leg bearing word problem: a journey from A to B
+    (distance d1, bearing b1), then B to C (distance d2, bearing b2). Finds
+    the distance AC and the bearing of C from A, using the cosine and sine
+    rules (with a coordinate check to get the direction right), and draws
+    a sketch."""
+    try:
+        d1 = float(_require(d1, "the first distance"))
+        b1 = float(_require(b1, "the first bearing"))
+        d2 = float(_require(d2, "the second distance"))
+        b2 = float(_require(b2, "the second bearing"))
+        if not (0 <= b1 <= 360 and 0 <= b2 <= 360):
+            return _fail("Bearings should be between 0 and 360 degrees.")
+
+        steps = [f"A to B: distance {d1:g}, bearing {b1:g} degrees. "
+                 f"B to C: distance {d2:g}, bearing {b2:g} degrees."]
+
+        back_b1 = (b1 + 180) % 360
+        steps.append(f"The back bearing of AB (i.e. the bearing of A from B) = "
+                      f"{b1:g} {'+ 180' if b1 < 180 else '- 180'} = {back_b1:g} degrees")
+
+        diff = abs(b2 - back_b1)
+        angle_B = diff if diff <= 180 else 360 - diff
+        steps.append(f"Angle ABC (at B, between BA and BC) = the difference between {back_b1:g} "
+                      f"and {b2:g} = {angle_B:g} degrees")
+
+        AC_sq = d1 ** 2 + d2 ** 2 - 2 * d1 * d2 * math.cos(math.radians(angle_B))
+        steps.append("Use the cosine rule to find AC: AC^2 = AB^2 + BC^2 - 2.AB.BC.cos(B)")
+        steps.append(f"AC^2 = {d1:g}^2 + {d2:g}^2 - 2({d1:g})({d2:g})cos({angle_B:g})")
+        steps.append(f"AC^2 = {d1**2:g} + {d2**2:g} - {2*d1*d2:g} x {math.cos(math.radians(angle_B)):.4f}")
+        steps.append(f"AC^2 = {AC_sq:.4f}")
+        AC = math.sqrt(AC_sq)
+        steps.append(f"AC = {AC:.4f}")
+
+        sin_BAC = d2 * math.sin(math.radians(angle_B)) / AC
+        sin_BAC = max(-1, min(1, sin_BAC))
+        angle_BAC = math.degrees(math.asin(sin_BAC))
+        steps.append("Use the sine rule to find angle BAC: sin(BAC)/BC = sin(B)/AC")
+        steps.append(f"sin(BAC) = BC x sin(B) / AC = {d2:g} x sin({angle_B:g}) / {AC:.4f} = {sin_BAC:.4f}")
+        steps.append(f"angle BAC = {angle_BAC:.4f} degrees")
+
+        # Ground-truth check via coordinates to get the direction right
+        A = (0.0, 0.0)
+        B = _bearing_point(A, b1, d1)
+        C = _bearing_point(B, b2, d2)
+        true_bearing_AC = _bearing_of(A, C)
+
+        plus_version = (b1 + angle_BAC) % 360
+        minus_version = (b1 - angle_BAC) % 360
+        if abs((plus_version - true_bearing_AC + 180) % 360 - 180) < 0.5:
+            steps.append(f"C lies on the clockwise side of AB, so add angle BAC to the bearing of B: "
+                          f"{b1:g} + {angle_BAC:.4f} = {true_bearing_AC:.4f}")
+        else:
+            steps.append(f"C lies on the anticlockwise side of AB, so subtract angle BAC from the "
+                          f"bearing of B: {b1:g} - {angle_BAC:.4f} = {true_bearing_AC:.4f}")
+
+        bearing_str = f"{int(round(true_bearing_AC)) % 360:03d}"
+        steps.append(f"Distance AC = {AC:.2f} (same units as given), "
+                      f"Bearing of C from A = {bearing_str} degrees")
+
+        img = _bearing_sketch_png(
+            [(A[0], A[1], "A"), (B[0], B[1], "B"), (C[0], C[1], "C")],
+            [(A[0], A[1], B[0], B[1], "solid"),
+             (B[0], B[1], C[0], C[1], "solid"),
+             (A[0], A[1], C[0], C[1], "dashed")],
+        )
+        result_text = f"AC = {AC:.2f}, bearing of C from A = {bearing_str} degrees"
+        return _ok(steps, {"image": img, "text": result_text})
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+
+# ---------------------------------------------------------- EARTH GEOMETRY --
+
+def _earth_sketch_meridian_png(lat1, lat2, R=6400):
+    """Cross-section through the poles, showing two points on the same
+    meridian at different latitudes, with the angle between them marked
+    at the centre."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import io, base64
+
+    fig, ax = plt.subplots(figsize=(5.5, 5.5))
+    circle = plt.Circle((0, 0), 1, fill=False, edgecolor="#1e293b", linewidth=1.6)
+    ax.add_patch(circle)
+    ax.plot([0, 0], [-1.15, 1.15], color="#94a3b8", linewidth=1, linestyle=":")
+    ax.annotate("N", (0, 1.08), ha="center", fontsize=11, color="#475569")
+    ax.annotate("S", (0, -1.12), ha="center", fontsize=11, color="#475569")
+
+    for lat, label in [(lat1, "P1"), (lat2, "P2")]:
+        r = math.radians(lat)
+        x, y = math.sin(r), math.cos(r)
+        ax.plot([0, x], [0, y], color="#cbd5e1", linewidth=1)
+        ax.plot(x, y, "o", color="#dc2626", markersize=7, zorder=3)
+        ax.annotate(f"{label} ({lat:g}deg)", (x, y), textcoords="offset points",
+                     xytext=(8, 4), fontsize=10)
+
+    ax.plot(0, 0, "o", color="#0f172a", markersize=4)
+    ax.annotate("O", (0, 0), textcoords="offset points", xytext=(-12, -4), fontsize=10)
+
+    ax.set_xlim(-1.4, 1.4)
+    ax.set_ylim(-1.3, 1.3)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode("ascii")
+
+
+def _earth_sketch_parallel_png(lat, long1, long2):
+    """Looking down on the parallel of latitude from above the pole,
+    showing two points on it at different longitudes."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import io, base64
+
+    fig, ax = plt.subplots(figsize=(5.5, 5.5))
+    circle = plt.Circle((0, 0), 1, fill=False, edgecolor="#1e293b", linewidth=1.6)
+    ax.add_patch(circle)
+    ax.annotate(f"Parallel of latitude {lat:g}deg", (0, 1.15), ha="center", fontsize=10, color="#475569")
+
+    for lon, label in [(long1, "P1"), (long2, "P2")]:
+        r = math.radians(lon)
+        x, y = math.sin(r), math.cos(r)
+        ax.plot([0, x], [0, y], color="#cbd5e1", linewidth=1)
+        ax.plot(x, y, "o", color="#dc2626", markersize=7, zorder=3)
+        ax.annotate(f"{label} ({lon:g}deg)", (x, y), textcoords="offset points",
+                     xytext=(8, 4), fontsize=10)
+
+    ax.plot(0, 0, "o", color="#0f172a", markersize=4)
+    ax.annotate("O", (0, 0), textcoords="offset points", xytext=(-12, -4), fontsize=10)
+
+    ax.set_xlim(-1.4, 1.4)
+    ax.set_ylim(-1.3, 1.3)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode("ascii")
+
+
+def earth_distance_meridian(lat1, lat2, R=None, unit="km", pi_val=None):
+    """Distance between two points on the same meridian (same longitude,
+    different latitude) -- i.e. along a great circle through the poles."""
+    try:
+        lat1 = float(_require(lat1, "the first latitude"))
+        lat2 = float(_require(lat2, "the second latitude"))
+        dlat = abs(lat1 - lat2)
+        steps = [f"P1 at latitude {lat1:g} degrees, P2 at latitude {lat2:g} degrees (same longitude)",
+                 f"Difference in latitude = |{lat1:g} - {lat2:g}| = {dlat:g} degrees"]
+
+        if unit == "nm":
+            dist = dlat * 60
+            steps.append("Along a meridian, 1 degree of latitude = 60 nautical miles:")
+            steps.append(f"Distance = {dlat:g} x 60 = {dist:g} nautical miles")
+            result = f"{dist:g} nautical miles"
+        else:
+            R = float(R) if R not in (None, "") else 6400.0
+            pi_v = sp.nsimplify(pi_val) if pi_val not in (None, "") else sp.Rational(22, 7)
+            steps.append(f"Distance = (angle/360) x 2 x pi x R, with R = {R:g} km, pi = {_mathstr(pi_v)}")
+            circumference = 2 * float(pi_v) * R
+            dist = (dlat / 360) * circumference
+            steps.append(f"Distance = ({dlat:g}/360) x 2 x {_mathstr(pi_v)} x {R:g}")
+            steps.append(f"Distance = ({dlat:g}/360) x {circumference:.2f}")
+            steps.append(f"Distance = {dist:.2f} km")
+            result = f"{dist:.2f} km"
+
+        img = _earth_sketch_meridian_png(lat1, lat2)
+        return _ok(steps, {"image": img, "text": f"Distance = {result}"})
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def earth_radius_of_parallel(lat, R=None, pi_val=None):
+    """Radius of the circle of latitude (parallel) at a given latitude."""
+    try:
+        lat = float(_require(lat, "the latitude"))
+        R = float(R) if R not in (None, "") else 6400.0
+        steps = [f"Latitude = {lat:g} degrees, R (radius of the Earth) = {R:g}",
+                 "Radius of a parallel of latitude: r = R x cos(latitude)"]
+        r = R * math.cos(math.radians(lat))
+        steps.append(f"r = {R:g} x cos({lat:g}) = {R:g} x {math.cos(math.radians(lat)):.4f}")
+        steps.append(f"r = {r:.2f}")
+        return _ok(steps, f"r = {r:.2f}")
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def earth_distance_parallel(lat, long1, long2, R=None, unit="km", pi_val=None):
+    """Distance between two points on the same parallel of latitude (same
+    latitude, different longitude)."""
+    try:
+        lat = float(_require(lat, "the latitude"))
+        long1 = float(_require(long1, "the first longitude"))
+        long2 = float(_require(long2, "the second longitude"))
+        dlong = abs(long1 - long2)
+        steps = [f"Both points on latitude {lat:g} degrees; longitudes {long1:g} and {long2:g}",
+                 f"Difference in longitude = |{long1:g} - {long2:g}| = {dlong:g} degrees"]
+
+        if unit == "nm":
+            dist = dlong * 60 * math.cos(math.radians(lat))
+            steps.append("Along a parallel, 1 degree of longitude = 60 x cos(latitude) nautical miles:")
+            steps.append(f"Distance = {dlong:g} x 60 x cos({lat:g}) = {dlong:g} x 60 x "
+                          f"{math.cos(math.radians(lat)):.4f}")
+            steps.append(f"Distance = {dist:.2f} nautical miles")
+            result = f"{dist:.2f} nautical miles"
+        else:
+            R = float(R) if R not in (None, "") else 6400.0
+            pi_v = sp.nsimplify(pi_val) if pi_val not in (None, "") else sp.Rational(22, 7)
+            r = R * math.cos(math.radians(lat))
+            steps.append(f"First find the radius of this parallel: r = R x cos(latitude) = "
+                          f"{R:g} x cos({lat:g}) = {r:.2f}")
+            steps.append(f"Distance = (angle/360) x 2 x pi x r, with pi = {_mathstr(pi_v)}")
+            circumference = 2 * float(pi_v) * r
+            dist = (dlong / 360) * circumference
+            steps.append(f"Distance = ({dlong:g}/360) x 2 x {_mathstr(pi_v)} x {r:.2f}")
+            steps.append(f"Distance = ({dlong:g}/360) x {circumference:.2f}")
+            steps.append(f"Distance = {dist:.2f} km")
+            result = f"{dist:.2f} km"
+
+        img = _earth_sketch_parallel_png(lat, long1, long2)
+        return _ok(steps, {"image": img, "text": f"Distance = {result}"})
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def earth_speed(distance, time, distance_unit="nm", time_unit="hours"):
+    """Average speed = distance / time (e.g. speed in knots for nautical
+    miles per hour)."""
+    try:
+        distance = float(_require(distance, "the distance"))
+        time = float(_require(time, "the time"))
+        if time == 0:
+            return _fail("Time can't be zero.")
+        steps = [f"Distance = {distance:g} {distance_unit}, Time = {time:g} {time_unit}",
+                 "Speed = Distance / Time"]
+        speed = distance / time
+        unit_label = "knots" if (distance_unit == "nm" and time_unit == "hours") else \
+            f"{distance_unit} per {time_unit[:-1] if time_unit.endswith('s') else time_unit}"
+        steps.append(f"Speed = {distance:g} / {time:g} = {speed:.2f} {unit_label}")
+        return _ok(steps, f"{speed:.2f} {unit_label}")
     except _MissingInput as e:
         return _fail(str(e))
     except Exception as e:

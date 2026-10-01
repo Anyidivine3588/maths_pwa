@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Longitude &amp; Latitude (Earth Geometry)</h1>
+
+<div class="tabs">
+  <div class="tab active" data-tab="meridian" onclick="showTab('meridian')">Distance (Meridian)</div>
+  <div class="tab" data-tab="parallel" onclick="showTab('parallel')">Distance (Parallel)</div>
+  <div class="tab" data-tab="radius" onclick="showTab('radius')">Radius of Parallel</div>
+  <div class="tab" data-tab="speed" onclick="showTab('speed')">Speed</div>
+</div>
+
+<div id="meridian" class="panel active card">
+  <h2>Distance Along a Meridian</h2>
+  <p class="hint">Two points with the same longitude, different latitude (a journey due
+     north/south). A sketch of the Earth's cross-section is drawn too.</p>
+  <div class="two-col">
+    <div><label>Latitude of P1 (degrees, negative for South)</label><input type="text" id="em_lat1" placeholder="10"></div>
+    <div><label>Latitude of P2 (degrees, negative for South)</label><input type="text" id="em_lat2" placeholder="40"></div>
+  </div>
+  <div class="two-col">
+    <div><label>Units</label>
+      <select id="em_unit">
+        <option value="km">Kilometres (uses R and pi)</option>
+        <option value="nm">Nautical miles (1 deg = 60 nm)</option>
+      </select>
+    </div>
+    <div><label>Radius of Earth R (km, optional -- default 6400)</label><input type="text" id="em_R" placeholder="6400"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/earthgeo/meridian', {lat1: document.getElementById('em_lat1').value, lat2: document.getElementById('em_lat2').value, unit: document.getElementById('em_unit').value, R: document.getElementById('em_R').value}, 'em_out')">Solve</button>
+  <div id="em_out"></div>
+</div>
+
+<div id="parallel" class="panel card">
+  <h2>Distance Along a Parallel of Latitude</h2>
+  <p class="hint">Two points with the same latitude, different longitude (a journey due
+     east/west).</p>
+  <div class="two-col">
+    <div><label>Latitude (degrees)</label><input type="text" id="ep_lat" placeholder="60"></div>
+    <div></div>
+    <div><label>Longitude of P1 (degrees, negative for West)</label><input type="text" id="ep_long1" placeholder="10"></div>
+    <div><label>Longitude of P2 (degrees, negative for West)</label><input type="text" id="ep_long2" placeholder="50"></div>
+  </div>
+  <div class="two-col">
+    <div><label>Units</label>
+      <select id="ep_unit">
+        <option value="km">Kilometres (uses R and pi)</option>
+        <option value="nm">Nautical miles</option>
+      </select>
+    </div>
+    <div><label>Radius of Earth R (km, optional -- default 6400)</label><input type="text" id="ep_R" placeholder="6400"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/earthgeo/parallel', {lat: document.getElementById('ep_lat').value, long1: document.getElementById('ep_long1').value, long2: document.getElementById('ep_long2').value, unit: document.getElementById('ep_unit').value, R: document.getElementById('ep_R').value}, 'ep_out')">Solve</button>
+  <div id="ep_out"></div>
+</div>
+
+<div id="radius" class="panel card">
+  <h2>Radius of a Parallel of Latitude</h2>
+  <p class="hint">r = R &times; cos(latitude)</p>
+  <div class="two-col">
+    <div><label>Latitude (degrees)</label><input type="text" id="er_lat" placeholder="60"></div>
+    <div><label>Radius of Earth R (km, optional -- default 6400)</label><input type="text" id="er_R" placeholder="6400"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/earthgeo/radius', {lat: document.getElementById('er_lat').value, R: document.getElementById('er_R').value}, 'er_out')">Solve</button>
+  <div id="er_out"></div>
+</div>
+
+<div id="speed" class="panel card">
+  <h2>Speed</h2>
+  <p class="hint">Speed = Distance / Time (e.g. nautical miles per hour = knots)</p>
+  <div class="two-col">
+    <div><label>Distance</label><input type="text" id="es_dist" placeholder="240"></div>
+    <div><label>Time (hours)</label><input type="text" id="es_time" placeholder="4"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/earthgeo/speed', {distance: document.getElementById('es_dist').value, time: document.getElementById('es_time').value}, 'es_out')">Solve</button>
+  <div id="es_out"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+{% endblock %}
