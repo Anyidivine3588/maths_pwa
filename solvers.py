@@ -2071,8 +2071,58 @@ def indices_solve_equal_base(expr_str):
         if rewrites:
             steps.append(f"Express every number as a power of {common_base}: " + ", ".join(rewrites))
 
-        lhs_exp = _reduce_to_power(lhs, common_base)
-        rhs_exp = _reduce_to_power(rhs, common_base)
+        def _narrate_reduction(e, b, out_steps):
+            """Like _reduce_to_power, but appends step-by-step narration:
+            the power-of-power conversion for each term, and the exponent
+            addition when combining terms via multiplication."""
+            if e.is_Pow:
+                base, exp = e.as_base_exp()
+                if base.is_Integer and base > 0:
+                    info = _single_prime_base(int(base))
+                    if info and info[0] == b:
+                        k = info[1]
+                        exp_str = _clean_pow(exp)
+                        exp_paren = exp_str if exp.is_Atom else f"({exp_str})"
+                        if base != b:
+                            out_steps.append(
+                                f"  {base}^{exp_paren} = ({b}^{k})^{exp_paren} "
+                                f"= {b}^({k} x {exp_paren}) = {b}^({_clean_pow(sp.simplify(k * exp))})")
+                        else:
+                            out_steps.append(f"  {b}^{exp_paren} is already a power of {b}")
+                        return sp.simplify(k * exp)
+                return None
+            if e.is_Integer:
+                if e == 1:
+                    return sp.Integer(0)
+                info = _single_prime_base(int(e))
+                if info and info[0] == b:
+                    if e != b:
+                        out_steps.append(f"  {e} = {b}^{info[1]}")
+                    return sp.Integer(info[1])
+                return None
+            if e.is_Mul:
+                parts = []
+                for factor in e.args:
+                    sub = _narrate_reduction(factor, b, out_steps)
+                    if sub is None:
+                        return None
+                    parts.append(sub)
+                if len(parts) > 1:
+                    sum_str = _signed_join(parts) if all(p.is_number for p in parts) else \
+                        " + ".join(_clean_pow(p) for p in parts)
+                    total = sp.simplify(sum(parts))
+                    out_steps.append(
+                        f"  Multiplying powers of the same base means ADD the indices: "
+                        f"{b}^({sum_str}) = {b}^({_clean_pow(total)})")
+                    return total
+                return parts[0]
+            return _reduce_to_power(e, b)
+
+        steps.append("Rewrite the left-hand side as a single power of "
+                      f"{common_base}:")
+        lhs_exp = _narrate_reduction(lhs, common_base, steps)
+        steps.append(f"Rewrite the right-hand side as a single power of {common_base}:")
+        rhs_exp = _narrate_reduction(rhs, common_base, steps)
         if lhs_exp is None or rhs_exp is None:
             return _fail("This equation doesn't reduce cleanly to a single power on each side "
                          "using the equal-base method -- it may need a different (e.g. "
@@ -2358,15 +2408,42 @@ def log_solve_equation(expr_str):
 
         num = sp.Integer(1)
         den = sp.Integer(1)
+        pos_terms = []
+        neg_terms = []
         for (c, a, b) in all_logs:
             if c > 0:
                 num *= a ** c
+                pos_terms.append(a if c == 1 else a ** c)
             else:
                 den *= a ** (-c)
-        combined_arg = sp.simplify(num / den)
+                neg_terms.append(a if c == -1 else a ** (-c))
 
         if len(all_logs) > 1:
-            steps.append(f"Combine the logarithms (same base {base_disp}) using the laws of logarithms:")
+            law_bits = []
+            if len(pos_terms) >= 2:
+                law_bits.append("log(a) + log(b) = log(ab)")
+            if neg_terms:
+                law_bits.append("log(a) - log(b) = log(a/b)")
+            steps.append(f"Combine the logarithms (same base {base_disp}) using the laws of "
+                          f"logarithms ({'; '.join(law_bits)}):")
+            def _paren_add(t):
+                s = _clean_log(t)
+                return f"({s})" if isinstance(t, sp.Add) else s
+
+            arg_desc = " x ".join(_paren_add(t) for t in pos_terms)
+            if neg_terms:
+                arg_desc = f"({arg_desc}) / (" + " x ".join(_paren_add(t) for t in neg_terms) + ")"
+            steps.append(f"log base {base_disp} of [{arg_desc}] = {_mathstr(const_term)}")
+
+            if len(pos_terms) == 2 and not neg_terms and \
+                    isinstance(pos_terms[0], sp.Add) and isinstance(pos_terms[1], sp.Add):
+                combined_arg = _distribute_narrate(steps, pos_terms[0], pos_terms[1],
+                                                    "Expand this product (multiply each term by each term)")
+            else:
+                combined_arg = sp.expand(num / den)
+        else:
+            combined_arg = sp.simplify(num / den)
+
         steps.append(f"log base {base_disp} of {_clean_log(combined_arg)} = {_mathstr(const_term)}")
 
         steps.append("Convert from logarithmic form to exponential form "
@@ -2561,11 +2638,16 @@ def surd_arithmetic(expr_str):
             for a in t1s:
                 for b in t2s:
                     prod = sp.nsimplify(sp.sqrtdenest(sp.radsimp(sp.simplify(a * b))))
-                    steps.append(f"  {_clean_surd(a)} x {_clean_surd(b)} = {_clean_surd(prod)}")
+                    steps.append(f"  {_paren_if_neg(a)} x {_paren_if_neg(b)} = {_clean_surd(prod)}")
                     subproducts.append(prod)
             extra_coeff = sp.Mul(*coeff_factors) if coeff_factors else sp.Integer(1)
+            if extra_coeff != 1:
+                steps.append(f"Add these together: {_signed_join(subproducts)} = "
+                              f"{_clean_surd(sp.expand(sum(subproducts)))}")
+                steps.append(f"Then multiply by the remaining {_clean_surd(extra_coeff)}:")
+            else:
+                steps.append(f"Add these together and combine like terms: {_signed_join(subproducts)}")
             total = sp.nsimplify(sp.radsimp(sp.expand(sum(subproducts) * extra_coeff)))
-            steps.append("Add these together and combine like terms:")
             steps.append(f"= {_clean_surd(total)}")
             return _ok(steps, _clean_surd(total))
         else:
@@ -2585,9 +2667,49 @@ def surd_arithmetic(expr_str):
         return _fail(f"Could not solve: {e}")
 
 
+def _paren_if_neg(t):
+    s = _clean_surd(t)
+    return f"({s})" if s.startswith("-") else s
+
+
+def _signed_join(terms):
+    """Join sympy terms into a string like '12 - 6sqrt(3)' with proper
+    +/- signs, instead of a double sign like '12 + -6sqrt(3)'."""
+    out = ""
+    for i, t in enumerate(terms):
+        s = _clean_surd(t)
+        neg = s.startswith("-")
+        body = s[1:] if neg else s
+        if i == 0:
+            out += ("-" + body) if neg else body
+        else:
+            out += (" - " + body) if neg else (" + " + body)
+    return out
+
+
+def _distribute_narrate(steps, factor1, factor2, label):
+    """Narrate multiplying factor1 by factor2 term-by-term (each may be a
+    single term or a binomial), showing every sub-product on its own
+    line, then return the simplified sum."""
+    t1s = list(factor1.args) if isinstance(factor1, sp.Add) else [factor1]
+    t2s = list(factor2.args) if isinstance(factor2, sp.Add) else [factor2]
+    steps.append(f"{label}:")
+    subproducts = []
+    for a in t1s:
+        for b in t2s:
+            prod = sp.expand(a * b)
+            steps.append(f"  {_paren_if_neg(a)} x {_paren_if_neg(b)} = {_clean_surd(prod)}")
+            subproducts.append(prod)
+    total = sp.expand(sum(subproducts))
+    if len(subproducts) > 1:
+        steps.append(f"  Add these: {_signed_join(subproducts)} = {_clean_surd(total)}")
+    return sp.nsimplify(total)
+
+
 def surd_rationalize(expr_str):
     """Rationalise the denominator of a fraction involving surds, handling
-    both a single-surd denominator and a binomial surd denominator."""
+    both a single-surd denominator and a binomial surd denominator, with
+    every multiplication fully expanded term-by-term."""
     try:
         expr_str = _require(expr_str, "the fraction")
         expr = _parse(expr_str)
@@ -2611,18 +2733,23 @@ def surd_rationalize(expr_str):
                 conjugate = conj_ab
             steps.append(f"The denominator is a binomial surd, so multiply top and bottom "
                           f"by its conjugate, {_clean_surd(conjugate)}:")
-            new_num = sp.expand(num * conjugate)
-            new_den = sp.expand(den * conjugate)
             steps.append(f"= [{_clean_surd(num)} x ({_clean_surd(conjugate)})] / "
                           f"[({_clean_surd(den)})({_clean_surd(conjugate)})]")
+
+            new_num = _distribute_narrate(steps, num, conjugate, "Expand the numerator")
+            new_den = _distribute_narrate(steps, den, conjugate, "Expand the denominator "
+                                           "(the surd terms should cancel out)")
+
             steps.append(f"= ({_clean_surd(new_num)}) / {_clean_surd(new_den)}")
             result_expr = sp.nsimplify(sp.simplify(new_num / new_den))
         else:
             steps.append("Multiply top and bottom by the surd in the denominator so it "
                           "becomes a whole number:")
-            new_num = sp.expand(num * den)
-            new_den = sp.expand(den * den)
             steps.append(f"= [{_clean_surd(num)} x {_clean_surd(den)}] / [{_clean_surd(den)} x {_clean_surd(den)}]")
+
+            new_num = _distribute_narrate(steps, num, den, "Expand the numerator")
+            new_den = _distribute_narrate(steps, den, den, "Expand the denominator")
+
             steps.append(f"= ({_clean_surd(new_num)}) / {_clean_surd(new_den)}")
             result_expr = sp.nsimplify(sp.simplify(new_num / new_den))
 
@@ -2679,9 +2806,24 @@ def surd_solve_equation(expr_str):
             other_side = sp.expand(-sum(without_target))
 
             steps.append(f"Isolate a square root on one side: {_clean_surd(target_side)} = {_clean_surd(other_side)}")
-            squared_lhs = sp.expand(sp.together(target_side) ** 2) if not target_side.is_Add else sp.expand(target_side ** 2)
-            squared_rhs = sp.expand(other_side ** 2)
             steps.append("Square both sides:")
+
+            if isinstance(target_side, sp.Add) and len(target_side.args) > 1:
+                squared_lhs = _distribute_narrate(steps, target_side, target_side,
+                                                   f"({_clean_surd(target_side)})^2 means "
+                                                   f"({_clean_surd(target_side)}) x ({_clean_surd(target_side)})")
+            else:
+                squared_lhs = sp.expand(sp.together(target_side) ** 2)
+                steps.append(f"  ({_clean_surd(target_side)})^2 = {_clean_surd(squared_lhs)}")
+
+            if isinstance(other_side, sp.Add) and len(other_side.args) > 1:
+                squared_rhs = _distribute_narrate(steps, other_side, other_side,
+                                                   f"({_clean_surd(other_side)})^2 means "
+                                                   f"({_clean_surd(other_side)}) x ({_clean_surd(other_side)})")
+            else:
+                squared_rhs = sp.expand(other_side ** 2)
+                steps.append(f"  ({_clean_surd(other_side)})^2 = {_clean_surd(squared_rhs)}")
+
             steps.append(f"{_clean_surd(squared_lhs)} = {_clean_surd(squared_rhs)}")
             current_lhs, current_rhs = squared_lhs, squared_rhs
             square_count += 1
