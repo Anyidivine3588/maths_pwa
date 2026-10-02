@@ -43,6 +43,10 @@ def _normalize_expr(s):
     s = re.sub(r"\u221a\s*\(", "sqrt(", s)
     s = re.sub(r"\u221a\s*(\d+(?:\.\d+)?)", r"sqrt(\1)", s)
     s = re.sub(r"\u221a\s*([a-zA-Z])(?!\w)", r"sqrt(\1)", s)
+    # "log40" or "ln40" with no parentheses and no space would otherwise be
+    # split letter-by-letter by the parser (e.g. "log40" -> 40*l*o*g) --
+    # insert the parentheses so it reads as a function call.
+    s = re.sub(r"\b(log|ln)\s*(\d+(?:\.\d+)?)", r"\1(\2)", s)
     return s.strip()
 
 
@@ -2247,10 +2251,75 @@ def log_change_of_base(value, from_base, to_base=10):
         return _fail(f"Could not solve: {e}")
 
 
+_KNOWN_LOG10 = {2: 0.3010, 3: 0.4771, 5: 0.6990, 7: 0.8451, 11: 1.0414, 13: 1.1139}
+
+
 def log_laws_simplify(expr_str):
-    """Simplify/expand a log expression using the laws of logarithms."""
+    """Simplify/expand a log expression using the laws of logarithms. For a
+    bare number (e.g. log(40)), breaks it into prime factors and evaluates
+    using standard log-table values for each prime -- the classic WAEC
+    'laws of logarithms' numeric technique. For a symbolic expression
+    (e.g. log(x*y)), demonstrates the laws symbolically instead."""
     try:
         expr_str = _require(expr_str, "the expression")
+        normalized = _normalize_expr(expr_str.strip())
+
+        m = (re.match(r"^log_(\w+)\(\s*(\d+)\s*\)$", normalized) or
+             re.match(r"^(log)\(\s*(\d+)\s*\)$", normalized) or
+             re.match(r"^(ln)\(\s*(\d+)\s*\)$", normalized))
+
+        if m:
+            base_token, num_str = m.group(1), m.group(2)
+            n = int(num_str)
+            if base_token == "ln":
+                base_val, base_disp = sp.E, "e"
+            elif base_token == "log":
+                base_val, base_disp = sp.Integer(10), "10"
+            else:
+                base_val = sp.nsimplify(base_token)
+                base_disp = str(base_val)
+
+            if n >= 2 and base_val == 10:
+                factors = sp.factorint(n)
+                steps = [f"log base {base_disp} of {n}"]
+                factor_str = " x ".join(f"{p}^{k}" if k > 1 else f"{p}" for p, k in sorted(factors.items()))
+                steps.append(f"Write {n} as a product of prime factors: {n} = {factor_str}")
+
+                law_bits = []
+                if len(factors) > 1:
+                    law_bits.append("log(ab) = log(a) + log(b)")
+                if any(k > 1 for k in factors.values()):
+                    law_bits.append("log(a^n) = n.log(a)")
+                if law_bits:
+                    steps.append(f"Using {' and '.join(law_bits)}:")
+
+                term_labels = []
+                total = 0.0
+                for p, k in sorted(factors.items()):
+                    val = _KNOWN_LOG10.get(p, math.log10(p))
+                    src = "standard value" if p in _KNOWN_LOG10 else "log table"
+                    contrib = k * val
+                    total += contrib
+                    if k > 1:
+                        term_labels.append(f"{k} log({p})")
+                        steps.append(f"  log({p}) = {val:.4f} ({src}), so {k} log({p}) = "
+                                      f"{k} x {val:.4f} = {contrib:.4f}")
+                    else:
+                        term_labels.append(f"log({p})")
+                        steps.append(f"  log({p}) = {val:.4f} ({src})")
+
+                steps.append(f"log{base_disp}({n}) = {' + '.join(term_labels)}")
+                sum_disp = " + ".join(
+                    (f"{k} x {_KNOWN_LOG10.get(p, math.log10(p)):.4f}" if k > 1
+                     else f"{_KNOWN_LOG10.get(p, math.log10(p)):.4f}")
+                    for p, k in sorted(factors.items())
+                )
+                steps.append(f"= {sum_disp}")
+                if len(factors) > 1 or any(k > 1 for k in factors.values()):
+                    steps.append(f"= {total:.4f}")
+                return _ok(steps, f"{total:.4f}")
+
+        # Fall back to symbolic law demonstration (e.g. log(x*y), log(x/y)).
         expr = _parse(expr_str, {"x": x, "log": sp.log, "ln": sp.log})
         steps = [f"Expression: {_clean_log(expr)}"]
 
@@ -2920,15 +2989,70 @@ def _bearing_sketch_png(points_labels, lines):
     return base64.b64encode(buf.read()).decode("ascii")
 
 
+_CARDINAL_BEARINGS = {
+    "N": 0, "NORTH": 0,
+    "NE": 45, "NORTHEAST": 45,
+    "E": 90, "EAST": 90,
+    "SE": 135, "SOUTHEAST": 135,
+    "S": 180, "SOUTH": 180,
+    "SW": 225, "SOUTHWEST": 225,
+    "W": 270, "WEST": 270,
+    "NW": 315, "NORTHWEST": 315,
+}
+
+
+def _parse_bearing_input(s, label="the bearing"):
+    """Parse a bearing given in ANY common WAEC form into a 0-360 numeric
+    bearing: a plain number (060, 60), a quadrant/compass bearing (N30E,
+    S45W), or a cardinal/intercardinal direction in words or letters
+    ('due north', 'north-east', 'NE', 'due south-west', ...)."""
+    s = _require(s, label)
+    s = s.strip().upper()
+    s = re.sub(r"\bDUE\b", "", s)
+    s = s.replace("-", "").replace(" ", "").replace("\u00b0", "")
+    if s == "":
+        raise _MissingInput(label)
+
+    if s in _CARDINAL_BEARINGS:
+        return float(_CARDINAL_BEARINGS[s])
+
+    m = re.match(r"^([NS])(\d+(?:\.\d+)?)([EW])$", s)
+    if m:
+        ns, ang, ew = m.group(1), float(m.group(2)), m.group(3)
+        if ns == "N" and ew == "E":
+            return ang % 360
+        elif ns == "S" and ew == "E":
+            return (180 - ang) % 360
+        elif ns == "S" and ew == "W":
+            return (180 + ang) % 360
+        else:
+            return (360 - ang) % 360
+
+    try:
+        return float(s) % 360
+    except ValueError:
+        raise ValueError(f"Could not understand the bearing '{s}'. Try a three-figure bearing "
+                          "(e.g. 060), a compass bearing (e.g. N30E), or a direction like "
+                          "'due north' or 'south-west'.")
+
+
 def bearing_convert(bearing_str):
-    """Convert between three-figure bearing (e.g. 030) and compass bearing
-    (e.g. N30E), in either direction."""
+    """Convert between three-figure bearing (e.g. 030), compass bearing
+    (e.g. N30E), and plain directions (e.g. due north, south-west)."""
     try:
         bearing_str = _require(bearing_str, "the bearing")
-        s = bearing_str.strip().upper().replace(" ", "").replace("\u00b0", "")
+        s = bearing_str.strip().upper()
+        s_nospace = re.sub(r"\bDUE\b", "", s).replace("-", "").replace(" ", "").replace("\u00b0", "")
         steps = [f"Bearing given: {bearing_str.strip()}"]
 
-        m = re.match(r"^([NS])(\d+(?:\.\d+)?)([EW])$", s)
+        if s_nospace in _CARDINAL_BEARINGS:
+            three_fig = _CARDINAL_BEARINGS[s_nospace]
+            tf_str = f"{int(round(three_fig)):03d}"
+            steps.append(f"'{bearing_str.strip()}' is a standard direction -- measured clockwise "
+                          f"from North, that's {tf_str} degrees")
+            return _ok(steps, f"{tf_str} degrees")
+
+        m = re.match(r"^([NS])(\d+(?:\.\d+)?)([EW])$", s_nospace)
         if m:
             ns, ang, ew = m.group(1), float(m.group(2)), m.group(3)
             if ns == "N" and ew == "E":
@@ -2953,10 +3077,10 @@ def bearing_convert(bearing_str):
             return _ok(steps, f"{tf_str} degrees")
 
         try:
-            val = float(s) % 360
+            val = float(s_nospace) % 360
         except ValueError:
-            return _fail("Please give a bearing either as a three-figure bearing (e.g. 030) or "
-                         "a compass bearing (e.g. N30E).")
+            return _fail("Please give a bearing either as a three-figure bearing (e.g. 030), "
+                         "a compass bearing (e.g. N30E), or a direction like 'due north'.")
 
         steps.append(f"Three-figure bearing = {val:g} degrees")
         if val <= 90:
@@ -2987,10 +3111,12 @@ def bearing_convert(bearing_str):
 
 
 def bearing_back(bearing):
-    """The back bearing (the bearing of the return journey)."""
+    """The back bearing (the bearing of the return journey). Accepts a
+    three-figure bearing, a compass bearing, or a plain direction."""
     try:
-        bearing = float(_require(bearing, "the bearing"))
-        steps = [f"Bearing = {bearing:g} degrees"]
+        original = _require(bearing, "the bearing")
+        bearing = _parse_bearing_input(original)
+        steps = [f"Bearing given: {original.strip()} = {bearing:g} degrees"]
         if bearing < 180:
             back = bearing + 180
             steps.append(f"Since the bearing is less than 180, add 180: {bearing:g} + 180 = {back:g}")
@@ -3014,14 +3140,14 @@ def bearing_journey(d1, b1, d2, b2):
     a sketch."""
     try:
         d1 = float(_require(d1, "the first distance"))
-        b1 = float(_require(b1, "the first bearing"))
+        b1_raw = _require(b1, "the first bearing")
         d2 = float(_require(d2, "the second distance"))
-        b2 = float(_require(b2, "the second bearing"))
-        if not (0 <= b1 <= 360 and 0 <= b2 <= 360):
-            return _fail("Bearings should be between 0 and 360 degrees.")
+        b2_raw = _require(b2, "the second bearing")
+        b1 = _parse_bearing_input(b1_raw, "the first bearing")
+        b2 = _parse_bearing_input(b2_raw, "the second bearing")
 
-        steps = [f"A to B: distance {d1:g}, bearing {b1:g} degrees. "
-                 f"B to C: distance {d2:g}, bearing {b2:g} degrees."]
+        steps = [f"A to B: distance {d1:g}, bearing {b1_raw.strip()} ({b1:g} degrees). "
+                 f"B to C: distance {d2:g}, bearing {b2_raw.strip()} ({b2:g} degrees)."]
 
         back_b1 = (b1 + 180) % 360
         steps.append(f"The back bearing of AB (i.e. the bearing of A from B) = "
@@ -3083,32 +3209,46 @@ def bearing_journey(d1, b1, d2, b2):
 
 # ---------------------------------------------------------- EARTH GEOMETRY --
 
+def _globe_base(ax):
+    """Draw a 3D-looking globe outline: sphere silhouette, a perspective
+    equator ellipse, and the polar axis -- shared by both sketch types so
+    the Earth clearly reads as a sphere, not a flat circle."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Ellipse
+    sphere = plt.Circle((0, 0), 1, facecolor="#eff6ff", edgecolor="#1e293b", linewidth=1.8, zorder=1)
+    ax.add_patch(sphere)
+    equator = Ellipse((0, 0), width=2.0, height=0.56, facecolor="none",
+                       edgecolor="#94a3b8", linewidth=1.2, linestyle="--", zorder=2)
+    ax.add_patch(equator)
+    ax.plot([0, 0], [-1.15, 1.15], color="#94a3b8", linewidth=1, linestyle=":", zorder=2)
+    ax.annotate("N", (0, 1.08), ha="center", fontsize=11, color="#475569", zorder=4)
+    ax.annotate("S", (0, -1.12), ha="center", fontsize=11, color="#475569", zorder=4)
+    ax.annotate("Equator", (0.68, -0.1), fontsize=8.5, color="#64748b", zorder=4)
+    ax.plot(0, 0, "o", color="#0f172a", markersize=4, zorder=3)
+    ax.annotate("O", (0, 0), textcoords="offset points", xytext=(-12, -4), fontsize=10, zorder=4)
+
+
 def _earth_sketch_meridian_png(lat1, lat2, R=6400):
-    """Cross-section through the poles, showing two points on the same
-    meridian at different latitudes, with the angle between them marked
-    at the centre."""
+    """A 3D-looking globe (sphere + perspective equator + polar axis),
+    with two points on the same meridian at different latitudes, marked
+    on the sphere's silhouette (the great circle we're viewing face-on)."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import io, base64
 
     fig, ax = plt.subplots(figsize=(5.5, 5.5))
-    circle = plt.Circle((0, 0), 1, fill=False, edgecolor="#1e293b", linewidth=1.6)
-    ax.add_patch(circle)
-    ax.plot([0, 0], [-1.15, 1.15], color="#94a3b8", linewidth=1, linestyle=":")
-    ax.annotate("N", (0, 1.08), ha="center", fontsize=11, color="#475569")
-    ax.annotate("S", (0, -1.12), ha="center", fontsize=11, color="#475569")
+    _globe_base(ax)
 
-    for lat, label in [(lat1, "P1"), (lat2, "P2")]:
+    close_points = abs(lat1 - lat2) < 12
+    offsets = [(8, 14), (8, -16)] if close_points else [(8, 4), (8, 4)]
+    for (lat, label), off in zip([(lat1, "P1"), (lat2, "P2")], offsets):
         r = math.radians(lat)
         x, y = math.sin(r), math.cos(r)
-        ax.plot([0, x], [0, y], color="#cbd5e1", linewidth=1)
+        ax.plot([0, x], [0, y], color="#cbd5e1", linewidth=1, zorder=2)
         ax.plot(x, y, "o", color="#dc2626", markersize=7, zorder=3)
         ax.annotate(f"{label} ({lat:g}deg)", (x, y), textcoords="offset points",
-                     xytext=(8, 4), fontsize=10)
-
-    ax.plot(0, 0, "o", color="#0f172a", markersize=4)
-    ax.annotate("O", (0, 0), textcoords="offset points", xytext=(-12, -4), fontsize=10)
+                     xytext=off, fontsize=10, zorder=4)
 
     ax.set_xlim(-1.4, 1.4)
     ax.set_ylim(-1.3, 1.3)
@@ -3123,28 +3263,36 @@ def _earth_sketch_meridian_png(lat1, lat2, R=6400):
 
 
 def _earth_sketch_parallel_png(lat, long1, long2):
-    """Looking down on the parallel of latitude from above the pole,
-    showing two points on it at different longitudes."""
+    """A 3D-looking globe, with the specific parallel of latitude drawn as
+    its own perspective ellipse band, and the two points marked on it."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from matplotlib.patches import Ellipse
     import io, base64
 
     fig, ax = plt.subplots(figsize=(5.5, 5.5))
-    circle = plt.Circle((0, 0), 1, fill=False, edgecolor="#1e293b", linewidth=1.6)
-    ax.add_patch(circle)
-    ax.annotate(f"Parallel of latitude {lat:g}deg", (0, 1.15), ha="center", fontsize=10, color="#475569")
+    _globe_base(ax)
 
-    for lon, label in [(long1, "P1"), (long2, "P2")]:
-        r = math.radians(lon)
-        x, y = math.sin(r), math.cos(r)
-        ax.plot([0, x], [0, y], color="#cbd5e1", linewidth=1)
+    lat_r = math.radians(lat)
+    y_center = math.sin(lat_r)
+    radius_at_lat = math.cos(lat_r)
+    if radius_at_lat > 0.02:
+        parallel = Ellipse((0, y_center), width=2 * radius_at_lat, height=0.56 * radius_at_lat,
+                            facecolor="none", edgecolor="#16a34a", linewidth=1.8, zorder=2)
+        ax.add_patch(parallel)
+    ax.annotate(f"Latitude {lat:g}deg", (-radius_at_lat - 0.08, y_center), ha="right",
+                va="center", fontsize=8.5, color="#16a34a", zorder=4)
+
+    close_points = abs(long1 - long2) < 25
+    offsets = [(8, 14), (8, -16)] if close_points else [(8, 6), (10, -6)]
+    for (lon, label), off in zip([(long1, "P1"), (long2, "P2")], offsets):
+        theta = math.radians(lon)
+        x = radius_at_lat * math.sin(theta)
+        y = y_center + 0.28 * radius_at_lat * math.cos(theta)
         ax.plot(x, y, "o", color="#dc2626", markersize=7, zorder=3)
         ax.annotate(f"{label} ({lon:g}deg)", (x, y), textcoords="offset points",
-                     xytext=(8, 4), fontsize=10)
-
-    ax.plot(0, 0, "o", color="#0f172a", markersize=4)
-    ax.annotate("O", (0, 0), textcoords="offset points", xytext=(-12, -4), fontsize=10)
+                     xytext=off, fontsize=10, zorder=4)
 
     ax.set_xlim(-1.4, 1.4)
     ax.set_ylim(-1.3, 1.3)
@@ -3249,21 +3397,136 @@ def earth_distance_parallel(lat, long1, long2, R=None, unit="km", pi_val=None):
         return _fail(f"Could not solve: {e}")
 
 
-def earth_speed(distance, time, distance_unit="nm", time_unit="hours"):
-    """Average speed = distance / time (e.g. speed in knots for nautical
-    miles per hour)."""
+_SPEED_UNIT_LABELS = {
+    ("km", "hours"): "km/h",
+    ("m", "seconds"): "m/s",
+    ("nm", "hours"): "knots (nm/h)",
+}
+
+
+def earth_distance_speed_time(distance=None, speed=None, time=None,
+                               distance_unit="km", time_unit="hours"):
+    """Distance, speed and time problems: fill in any TWO of distance,
+    speed, time and leave the third blank. Defaults to km and hours
+    (km/h) or metres and seconds (m/s) -- the units students use day to
+    day -- though nautical miles/hours (knots) is also supported for
+    ship/aircraft problems."""
     try:
+        vals = {"distance": distance, "speed": speed, "time": time}
+        known = {k: float(v) for k, v in vals.items() if v not in (None, "")}
+        missing = [k for k in vals if k not in known]
+        if len(missing) != 1:
+            return _fail("Please leave exactly ONE of distance, speed, time blank -- that's "
+                         "the one this solver will find.")
+
+        unit_label = _SPEED_UNIT_LABELS.get((distance_unit, time_unit),
+                                             f"{distance_unit}/{time_unit[:-1] if time_unit.endswith('s') else time_unit}")
+        steps = [f"Known: " + ", ".join(f"{k} = {v:g}" for k, v in known.items()),
+                 "Speed = Distance / Time  (so Distance = Speed x Time, Time = Distance / Speed)"]
+
+        if missing[0] == "speed":
+            if known["time"] == 0:
+                return _fail("Time can't be zero.")
+            result_val = known["distance"] / known["time"]
+            steps.append(f"Speed = {known['distance']:g} / {known['time']:g} = {result_val:.2f} {unit_label}")
+            result = f"speed = {result_val:.2f} {unit_label}"
+        elif missing[0] == "distance":
+            result_val = known["speed"] * known["time"]
+            steps.append(f"Distance = {known['speed']:g} x {known['time']:g} = {result_val:.2f} {distance_unit}")
+            result = f"distance = {result_val:.2f} {distance_unit}"
+        else:
+            if known["speed"] == 0:
+                return _fail("Speed can't be zero.")
+            result_val = known["distance"] / known["speed"]
+            steps.append(f"Time = {known['distance']:g} / {known['speed']:g} = {result_val:.2f} {time_unit}")
+            result = f"time = {result_val:.2f} {time_unit}"
+
+        return _ok(steps, result)
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def earth_find_point_meridian(lat1, distance, direction, R=None, unit="km", pi_val=None):
+    """Given a starting latitude and a distance travelled due north or
+    due south (along a meridian), find the new latitude."""
+    try:
+        lat1 = float(_require(lat1, "the starting latitude"))
         distance = float(_require(distance, "the distance"))
-        time = float(_require(time, "the time"))
-        if time == 0:
-            return _fail("Time can't be zero.")
-        steps = [f"Distance = {distance:g} {distance_unit}, Time = {time:g} {time_unit}",
-                 "Speed = Distance / Time"]
-        speed = distance / time
-        unit_label = "knots" if (distance_unit == "nm" and time_unit == "hours") else \
-            f"{distance_unit} per {time_unit[:-1] if time_unit.endswith('s') else time_unit}"
-        steps.append(f"Speed = {distance:g} / {time:g} = {speed:.2f} {unit_label}")
-        return _ok(steps, f"{speed:.2f} {unit_label}")
+        direction = _require(direction, "the direction").strip().lower()
+        if "north" not in direction and "south" not in direction:
+            return _fail("Direction should be 'north' or 'south' (travelling along a meridian).")
+        sign = 1 if "north" in direction else -1
+
+        steps = [f"Start at latitude {lat1:g} degrees, travel {distance:g} due "
+                 f"{'north' if sign > 0 else 'south'} along the meridian"]
+
+        if unit == "nm":
+            dlat = distance / 60
+            steps.append("Along a meridian, 60 nautical miles = 1 degree of latitude:")
+            steps.append(f"Change in latitude = {distance:g} / 60 = {dlat:.4f} degrees")
+        else:
+            R = float(R) if R not in (None, "") else 6400.0
+            pi_v = float(sp.nsimplify(pi_val)) if pi_val not in (None, "") else 22 / 7
+            circumference = 2 * pi_v * R
+            dlat = distance / circumference * 360
+            steps.append(f"Distance = (angle/360) x 2piR, so angle = distance x 360 / (2piR), "
+                          f"with R = {R:g} km, pi = {pi_v:.4f}")
+            steps.append(f"Change in latitude = {distance:g} x 360 / {circumference:.2f} = {dlat:.4f} degrees")
+
+        new_lat = lat1 + sign * dlat
+        steps.append(f"New latitude = {lat1:g} {'+' if sign > 0 else '-'} {dlat:.4f} = {new_lat:.4f} degrees")
+        hemi = "N" if new_lat >= 0 else "S"
+        steps.append(f"New latitude = {abs(new_lat):.4f} degrees {hemi}")
+
+        img = _earth_sketch_meridian_png(lat1, new_lat)
+        result_text = f"New latitude = {new_lat:.4f} degrees ({abs(new_lat):.4f} deg {hemi})"
+        return _ok(steps, {"image": img, "text": result_text})
+    except _MissingInput as e:
+        return _fail(str(e))
+    except Exception as e:
+        return _fail(f"Could not solve: {e}")
+
+
+def earth_find_point_parallel(lat, long1, distance, direction, R=None, unit="km", pi_val=None):
+    """Given a latitude, a starting longitude, and a distance travelled
+    due east or due west (along that parallel), find the new longitude."""
+    try:
+        lat = float(_require(lat, "the latitude"))
+        long1 = float(_require(long1, "the starting longitude"))
+        distance = float(_require(distance, "the distance"))
+        direction = _require(direction, "the direction").strip().lower()
+        if "east" not in direction and "west" not in direction:
+            return _fail("Direction should be 'east' or 'west' (travelling along a parallel).")
+        sign = 1 if "east" in direction else -1
+
+        steps = [f"Latitude {lat:g} degrees, start longitude {long1:g} degrees, travel "
+                 f"{distance:g} due {'east' if sign > 0 else 'west'} along the parallel"]
+
+        if unit == "nm":
+            per_degree = 60 * math.cos(math.radians(lat))
+            steps.append(f"Along this parallel, 1 degree of longitude = 60 x cos({lat:g}) = "
+                          f"{per_degree:.4f} nautical miles")
+            dlong = distance / per_degree
+            steps.append(f"Change in longitude = {distance:g} / {per_degree:.4f} = {dlong:.4f} degrees")
+        else:
+            R = float(R) if R not in (None, "") else 6400.0
+            pi_v = float(sp.nsimplify(pi_val)) if pi_val not in (None, "") else 22 / 7
+            r = R * math.cos(math.radians(lat))
+            circumference = 2 * pi_v * r
+            steps.append(f"Radius of this parallel: r = R x cos(latitude) = {R:g} x cos({lat:g}) = {r:.2f}")
+            dlong = distance / circumference * 360
+            steps.append(f"Change in longitude = {distance:g} x 360 / (2 x {pi_v:.4f} x {r:.2f}) = {dlong:.4f} degrees")
+
+        new_long = long1 + sign * dlong
+        steps.append(f"New longitude = {long1:g} {'+' if sign > 0 else '-'} {dlong:.4f} = {new_long:.4f} degrees")
+        hemi = "E" if new_long >= 0 else "W"
+        steps.append(f"New longitude = {abs(new_long):.4f} degrees {hemi}")
+
+        img = _earth_sketch_parallel_png(lat, long1, new_long)
+        result_text = f"New longitude = {new_long:.4f} degrees ({abs(new_long):.4f} deg {hemi})"
+        return _ok(steps, {"image": img, "text": result_text})
     except _MissingInput as e:
         return _fail(str(e))
     except Exception as e:

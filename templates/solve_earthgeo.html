@@ -6,13 +6,15 @@
   <div class="tab active" data-tab="meridian" onclick="showTab('meridian')">Distance (Meridian)</div>
   <div class="tab" data-tab="parallel" onclick="showTab('parallel')">Distance (Parallel)</div>
   <div class="tab" data-tab="radius" onclick="showTab('radius')">Radius of Parallel</div>
-  <div class="tab" data-tab="speed" onclick="showTab('speed')">Speed</div>
+  <div class="tab" data-tab="findmer" onclick="showTab('findmer')">Find Location (N/S)</div>
+  <div class="tab" data-tab="findpar" onclick="showTab('findpar')">Find Location (E/W)</div>
+  <div class="tab" data-tab="speed" onclick="showTab('speed')">Distance / Speed / Time</div>
 </div>
 
 <div id="meridian" class="panel active card">
   <h2>Distance Along a Meridian</h2>
   <p class="hint">Two points with the same longitude, different latitude (a journey due
-     north/south). A sketch of the Earth's cross-section is drawn too.</p>
+     north/south). A sketch of the Earth as a globe is drawn too.</p>
   <div class="two-col">
     <div><label>Latitude of P1 (degrees, negative for South)</label><input type="text" id="em_lat1" placeholder="10"></div>
     <div><label>Latitude of P2 (degrees, negative for South)</label><input type="text" id="em_lat2" placeholder="40"></div>
@@ -64,14 +66,86 @@
   <div id="er_out"></div>
 </div>
 
+<div id="findmer" class="panel card">
+  <h2>Find New Location — Travelling North/South</h2>
+  <p class="hint">Starting at a known latitude, travel due north or due south along a
+     meridian by a given distance -- find the new latitude reached.</p>
+  <div class="two-col">
+    <div><label>Starting latitude (degrees, negative for South)</label><input type="text" id="fm_lat1" placeholder="10"></div>
+    <div><label>Direction</label>
+      <select id="fm_dir">
+        <option value="north">Due North</option>
+        <option value="south">Due South</option>
+      </select>
+    </div>
+    <div><label>Distance travelled</label><input type="text" id="fm_dist" placeholder="500"></div>
+    <div><label>Units</label>
+      <select id="fm_unit">
+        <option value="km">Kilometres (uses R and pi)</option>
+        <option value="nm">Nautical miles</option>
+      </select>
+    </div>
+  </div>
+  <label>Radius of Earth R (km, optional -- default 6400)</label>
+  <input type="text" id="fm_R" placeholder="6400">
+  <button onclick="postSolve('/api/solve/earthgeo/find-meridian', {lat1: document.getElementById('fm_lat1').value, direction: document.getElementById('fm_dir').value, distance: document.getElementById('fm_dist').value, unit: document.getElementById('fm_unit').value, R: document.getElementById('fm_R').value}, 'fm_out')">Solve</button>
+  <div id="fm_out"></div>
+</div>
+
+<div id="findpar" class="panel card">
+  <h2>Find New Location — Travelling East/West</h2>
+  <p class="hint">Starting at a known latitude and longitude, travel due east or due west
+     along that parallel by a given distance -- find the new longitude reached.</p>
+  <div class="two-col">
+    <div><label>Latitude (degrees)</label><input type="text" id="fp_lat" placeholder="60"></div>
+    <div><label>Starting longitude (degrees, negative for West)</label><input type="text" id="fp_long1" placeholder="10"></div>
+    <div><label>Direction</label>
+      <select id="fp_dir">
+        <option value="east">Due East</option>
+        <option value="west">Due West</option>
+      </select>
+    </div>
+    <div><label>Distance travelled</label><input type="text" id="fp_dist" placeholder="300"></div>
+  </div>
+  <div class="two-col">
+    <div><label>Units</label>
+      <select id="fp_unit">
+        <option value="km">Kilometres (uses R and pi)</option>
+        <option value="nm">Nautical miles</option>
+      </select>
+    </div>
+    <div><label>Radius of Earth R (km, optional -- default 6400)</label><input type="text" id="fp_R" placeholder="6400"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/earthgeo/find-parallel', {lat: document.getElementById('fp_lat').value, long1: document.getElementById('fp_long1').value, direction: document.getElementById('fp_dir').value, distance: document.getElementById('fp_dist').value, unit: document.getElementById('fp_unit').value, R: document.getElementById('fp_R').value}, 'fp_out')">Solve</button>
+  <div id="fp_out"></div>
+</div>
+
 <div id="speed" class="panel card">
-  <h2>Speed</h2>
-  <p class="hint">Speed = Distance / Time (e.g. nautical miles per hour = knots)</p>
+  <h2>Distance, Speed and Time</h2>
+  <p class="hint">Fill in any TWO of distance, speed, time and leave the third blank. Default
+     units are km and hours (km/h) -- switch to metres/seconds for m/s, or nautical
+     miles/hours for knots (ship and aircraft problems).</p>
   <div class="two-col">
     <div><label>Distance</label><input type="text" id="es_dist" placeholder="240"></div>
-    <div><label>Time (hours)</label><input type="text" id="es_time" placeholder="4"></div>
+    <div><label>Speed</label><input type="text" id="es_speed" placeholder=""></div>
+    <div><label>Time</label><input type="text" id="es_time" placeholder="4"></div>
+    <div></div>
+    <div><label>Distance unit</label>
+      <select id="es_dunit">
+        <option value="km">km</option>
+        <option value="m">m</option>
+        <option value="nm">nautical miles</option>
+      </select>
+    </div>
+    <div><label>Time unit</label>
+      <select id="es_tunit">
+        <option value="hours">hours</option>
+        <option value="seconds">seconds</option>
+        <option value="minutes">minutes</option>
+      </select>
+    </div>
   </div>
-  <button onclick="postSolve('/api/solve/earthgeo/speed', {distance: document.getElementById('es_dist').value, time: document.getElementById('es_time').value}, 'es_out')">Solve</button>
+  <button onclick="postSolve('/api/solve/earthgeo/speed', {distance: document.getElementById('es_dist').value, speed: document.getElementById('es_speed').value, time: document.getElementById('es_time').value, distance_unit: document.getElementById('es_dunit').value, time_unit: document.getElementById('es_tunit').value}, 'es_out')">Solve</button>
   <div id="es_out"></div>
 </div>
 {% endblock %}

@@ -674,11 +674,23 @@ def api_earthgeo(sub):
         res = solvers.earth_radius_of_parallel(data.get("lat"), data.get("R") or None)
         summary = f'lat={data.get("lat")}, R={data.get("R")}'
     elif sub == "speed":
-        res = solvers.earth_speed(
-            data.get("distance"), data.get("time"),
-            data.get("distance_unit") or "nm", data.get("time_unit") or "hours",
+        res = solvers.earth_distance_speed_time(
+            data.get("distance") or None, data.get("speed") or None, data.get("time") or None,
+            data.get("distance_unit") or "km", data.get("time_unit") or "hours",
         )
-        summary = f'distance={data.get("distance")}, time={data.get("time")}'
+        summary = f'distance={data.get("distance")}, speed={data.get("speed")}, time={data.get("time")}'
+    elif sub == "find-meridian":
+        res = solvers.earth_find_point_meridian(
+            data.get("lat1"), data.get("distance"), data.get("direction"),
+            data.get("R") or None, data.get("unit") or "km", data.get("pi_val") or None,
+        )
+        summary = f'lat1={data.get("lat1")}, distance={data.get("distance")}, direction={data.get("direction")}'
+    elif sub == "find-parallel":
+        res = solvers.earth_find_point_parallel(
+            data.get("lat"), data.get("long1"), data.get("distance"), data.get("direction"),
+            data.get("R") or None, data.get("unit") or "km", data.get("pi_val") or None,
+        )
+        summary = f'lat={data.get("lat")}, long1={data.get("long1")}, distance={data.get("distance")}, direction={data.get("direction")}'
     else:
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
 
