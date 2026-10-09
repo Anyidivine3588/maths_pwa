@@ -1,4 +1,10 @@
 import os
+import re
+import time
+import hmac
+import hashlib
+import secrets
+from urllib.parse import urlparse
 from functools import wraps
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
@@ -10,43 +16,90 @@ import db
 import solvers
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev-key-change-in-production")
 
-# Set this env var on your host to control who can register as a teacher.
-TEACHER_SIGNUP_CODE = os.environ.get("TEACHER_SIGNUP_CODE", "TEACHME123")
+# --- secret key: never a publicly-known default ---------------------------
+_key = os.environ.get("SECRET_KEY", "").strip()
+if not _key:
+    _dburl = os.environ.get("DATABASE_URL", "")
+    if _dburl:
+        # Stable, private fallback derived from the DB password so logins
+        # survive restarts even if SECRET_KEY was never set. Set SECRET_KEY
+        # on Render for best security.
+        _key = hashlib.sha256(("maths-assist|" + _dburl).encode()).hexdigest()
+    else:
+        _key = secrets.token_hex(32)  # local testing only
+app.secret_key = _key
+
+_IS_PROD = bool(os.environ.get("DATABASE_URL")) or bool(os.environ.get("RENDER"))
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=_IS_PROD,
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+    MAX_CONTENT_LENGTH=256 * 1024,
+)
+
+# Who may register as a teacher. NO default: if unset, teacher sign-up is closed.
+TEACHER_SIGNUP_CODE = os.environ.get("TEACHER_SIGNUP_CODE", "").strip()
+
+MIN_PASSWORD_LEN = 8
+_USERNAME_RE = re.compile(r"^[a-z0-9_.-]{3,30}$")
+
+# --- login throttling (per IP + username, in memory) -----------------------
+_FAILS = defaultdict(list)
+_MAX_FAILS = 5
+_WINDOW = 15 * 60
+
+
+def _client_ip():
+    fwd = request.headers.get("X-Forwarded-For", "")
+    return (fwd.split(",")[0].strip() if fwd else request.remote_addr) or "?"
+
+
+def _throttle_key(kind, username):
+    return f"{kind}|{_client_ip()}|{username}"
+
+
+def _is_locked(key):
+    now = time.time()
+    _FAILS[key] = [t for t in _FAILS[key] if now - t < _WINDOW]
+    return len(_FAILS[key]) >= _MAX_FAILS
+
+
+def _record_fail(key):
+    _FAILS[key].append(time.time())
+
+
+def _clear_fails(key):
+    _FAILS.pop(key, None)
+
+
+@app.before_request
+def _csrf_origin_check():
+    """Block cross-site POSTs: if the browser says the request came from a
+    different website, refuse it."""
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        src = request.headers.get("Origin") or request.headers.get("Referer")
+        if src:
+            host = urlparse(src).netloc
+            if host and host != request.host:
+                return ("Blocked: cross-site request.", 403)
+
+
+@app.after_request
+def _security_headers(resp):
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resp.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if _IS_PROD:
+        resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    if request.path.startswith(("/teacher", "/dashboard", "/api", "/login", "/register")):
+        resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 with app.app_context():
     db.init_db()
-
-
-@app.route("/db-status")
-def db_status():
-    """Temporary diagnostic page - tells us in plain English whether this
-    running server is actually using Supabase Postgres or the temporary
-    local file. Safe to leave up; shows no secrets."""
-    lines = []
-    url_present = bool(os.environ.get("DATABASE_URL"))
-    lines.append(f"DATABASE_URL environment variable detected on this server: {url_present}")
-
-    lines.append(f"TEACHER_SIGNUP_CODE environment variable detected on this server: {bool(os.environ.get('TEACHER_SIGNUP_CODE'))}")
-    lines.append(f"Currently active teacher signup code: {TEACHER_SIGNUP_CODE}")
-
-    if url_present:
-        lines.append("This server SHOULD be using permanent Supabase storage.")
-    else:
-        lines.append("This server is using the TEMPORARY local file, which is wiped on every restart. "
-                      "This is almost certainly the cause of the login problem.")
-
-    try:
-        conn = db.get_db()
-        row = conn.execute("SELECT COUNT(*) AS n FROM students").fetchone()
-        count = row["n"] if row else "?"
-        conn.close()
-        lines.append(f"Connected successfully. Current student count in this database: {count}")
-    except Exception as e:
-        lines.append(f"Connection attempt FAILED with this error: {repr(e)}")
-
-    return "<pre>" + "\n".join(lines) + "</pre>"
 
 
 # --------------------------------------------------------------- helpers --
@@ -67,6 +120,25 @@ def teacher_required(f):
             return redirect(url_for("teacher_login"))
         return f(*a, **kw)
     return wrapped
+
+
+@app.route("/teacher/db-status")
+@teacher_required
+def db_status():
+    """Teacher-only diagnostic. Shows no secrets."""
+    lines = [
+        f"Permanent database (DATABASE_URL) in use: {bool(os.environ.get('DATABASE_URL'))}",
+        f"Teacher signup code is set: {bool(TEACHER_SIGNUP_CODE)}",
+        f"SECRET_KEY is set: {bool(os.environ.get('SECRET_KEY'))}",
+    ]
+    try:
+        conn = db.get_db()
+        row = conn.execute("SELECT COUNT(*) AS n FROM students").fetchone()
+        conn.close()
+        lines.append(f"Database connected. Students: {row['n'] if row else '?'}")
+    except Exception:
+        lines.append("Database connection FAILED (see Render logs).")
+    return "<pre>" + "\n".join(lines) + "</pre>"
 
 
 TOPIC_LABELS = {
@@ -108,6 +180,14 @@ def register():
         if not full_name or not username or not password:
             flash("Please fill in all required fields.", "error")
             return render_template("register.html")
+        if not _USERNAME_RE.match(username):
+            flash("Username must be 3-30 characters: letters, numbers, . _ - only.", "error")
+            return render_template("register.html")
+        if len(password) < MIN_PASSWORD_LEN:
+            flash(f"Password must be at least {MIN_PASSWORD_LEN} characters.", "error")
+            return render_template("register.html")
+        full_name = full_name[:100]
+        class_name = class_name[:50]
 
         conn = db.get_db()
         existing = conn.execute("SELECT id FROM students WHERE username = ?", (username,)).fetchone()
@@ -125,6 +205,8 @@ def register():
         student = conn.execute("SELECT id FROM students WHERE username = ?", (username,)).fetchone()
         conn.close()
 
+        session.clear()
+        session.permanent = True
         session["student_id"] = student["id"]
         session["student_name"] = full_name
         return redirect(url_for("dashboard"))
@@ -137,13 +219,21 @@ def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip().lower()
         password = request.form.get("password", "")
+        tkey = _throttle_key("student", username)
+        if _is_locked(tkey):
+            flash("Too many failed attempts. Please wait 15 minutes and try again.", "error")
+            return render_template("login.html"), 429
         conn = db.get_db()
         student = conn.execute("SELECT * FROM students WHERE username = ?", (username,)).fetchone()
         conn.close()
         if student and check_password_hash(student["password_hash"], password):
+            _clear_fails(tkey)
+            session.clear()
+            session.permanent = True
             session["student_id"] = student["id"]
             session["student_name"] = student["full_name"]
             return redirect(url_for("dashboard"))
+        _record_fail(tkey)
         flash("Incorrect username or password.", "error")
     return render_template("login.html")
 
@@ -164,12 +254,24 @@ def teacher_register():
         password = request.form.get("password", "")
         code = request.form.get("code", "")
 
-        if code != TEACHER_SIGNUP_CODE:
+        tkey = _throttle_key("tsignup", "-")
+        if _is_locked(tkey):
+            flash("Too many failed attempts. Please wait 15 minutes and try again.", "error")
+            return render_template("teacher_register.html"), 429
+        if not TEACHER_SIGNUP_CODE or not hmac.compare_digest(code.encode(), TEACHER_SIGNUP_CODE.encode()):
+            _record_fail(tkey)
             flash("Invalid teacher signup code.", "error")
             return render_template("teacher_register.html")
         if not full_name or not username or not password:
             flash("Please fill in all required fields.", "error")
             return render_template("teacher_register.html")
+        if not _USERNAME_RE.match(username):
+            flash("Username must be 3-30 characters: letters, numbers, . _ - only.", "error")
+            return render_template("teacher_register.html")
+        if len(password) < 10:
+            flash("Teacher password must be at least 10 characters.", "error")
+            return render_template("teacher_register.html")
+        full_name = full_name[:100]
 
         conn = db.get_db()
         existing = conn.execute("SELECT id FROM teachers WHERE username = ?", (username,)).fetchone()
@@ -186,6 +288,8 @@ def teacher_register():
         teacher = conn.execute("SELECT id FROM teachers WHERE username = ?", (username,)).fetchone()
         conn.close()
 
+        session.clear()
+        session.permanent = True
         session["teacher_id"] = teacher["id"]
         session["teacher_name"] = full_name
         return redirect(url_for("teacher_dashboard"))
@@ -198,13 +302,21 @@ def teacher_login():
     if request.method == "POST":
         username = request.form.get("username", "").strip().lower()
         password = request.form.get("password", "")
+        tkey = _throttle_key("teacher", username)
+        if _is_locked(tkey):
+            flash("Too many failed attempts. Please wait 15 minutes and try again.", "error")
+            return render_template("teacher_login.html"), 429
         conn = db.get_db()
         teacher = conn.execute("SELECT * FROM teachers WHERE username = ?", (username,)).fetchone()
         conn.close()
         if teacher and check_password_hash(teacher["password_hash"], password):
+            _clear_fails(tkey)
+            session.clear()
+            session.permanent = True
             session["teacher_id"] = teacher["id"]
             session["teacher_name"] = teacher["full_name"]
             return redirect(url_for("teacher_dashboard"))
+        _record_fail(tkey)
         flash("Incorrect username or password.", "error")
     return render_template("teacher_login.html")
 
@@ -346,8 +458,7 @@ def teacher_student_detail(student_id):
 
 @app.route("/teacher/logout")
 def teacher_logout():
-    session.pop("teacher_id", None)
-    session.pop("teacher_name", None)
+    session.clear()
     return redirect(url_for("index"))
 
 
@@ -356,7 +467,7 @@ def teacher_logout():
 @app.route("/api/solve/algebra/<sub>", methods=["POST"])
 @student_required
 def api_algebra(sub):
-    data = request.get_json(force=True)
+    data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
     if sub == "quadratic":
@@ -387,7 +498,7 @@ def api_algebra(sub):
 @app.route("/api/solve/geometry/<sub>", methods=["POST"])
 @student_required
 def api_geometry(sub):
-    data = request.get_json(force=True)
+    data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
     if sub == "area-perimeter":
@@ -411,7 +522,7 @@ def api_geometry(sub):
 @app.route("/api/solve/graphs/<sub>", methods=["POST"])
 @student_required
 def api_graphs(sub):
-    data = request.get_json(force=True)
+    data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
     if sub == "table":
@@ -437,7 +548,7 @@ def api_graphs(sub):
 @app.route("/api/solve/sequences/<sub>", methods=["POST"])
 @student_required
 def api_sequences(sub):
-    data = request.get_json(force=True)
+    data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
     if sub == "ap-solve":
@@ -470,7 +581,7 @@ def api_sequences(sub):
 @app.route("/api/solve/sets/<sub>", methods=["POST"])
 @student_required
 def api_sets(sub):
-    data = request.get_json(force=True)
+    data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
     if sub == "operations":
@@ -508,7 +619,7 @@ def api_sets(sub):
 @app.route("/api/solve/trigonometry/<sub>", methods=["POST"])
 @student_required
 def api_trigonometry(sub):
-    data = request.get_json(force=True)
+    data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
     if sub == "right-triangle":
@@ -546,7 +657,7 @@ def api_trigonometry(sub):
 @app.route("/api/solve/indices/<sub>", methods=["POST"])
 @student_required
 def api_indices(sub):
-    data = request.get_json(force=True)
+    data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
     if sub == "multiply":
@@ -577,7 +688,7 @@ def api_indices(sub):
 @app.route("/api/solve/logarithms/<sub>", methods=["POST"])
 @student_required
 def api_logarithms(sub):
-    data = request.get_json(force=True)
+    data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
     if sub == "evaluate":
@@ -608,7 +719,7 @@ def api_logarithms(sub):
 @app.route("/api/solve/surds/<sub>", methods=["POST"])
 @student_required
 def api_surds(sub):
-    data = request.get_json(force=True)
+    data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
     if sub == "simplify":
@@ -633,7 +744,7 @@ def api_surds(sub):
 @app.route("/api/solve/bearings/<sub>", methods=["POST"])
 @student_required
 def api_bearings(sub):
-    data = request.get_json(force=True)
+    data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
     if sub == "convert":
@@ -655,7 +766,7 @@ def api_bearings(sub):
 @app.route("/api/solve/earthgeo/<sub>", methods=["POST"])
 @student_required
 def api_earthgeo(sub):
-    data = request.get_json(force=True)
+    data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
     if sub == "meridian":
