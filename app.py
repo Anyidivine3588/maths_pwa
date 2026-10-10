@@ -1,5 +1,6 @@
 import os
 import re
+import signal
 import time
 import hmac
 import hashlib
@@ -14,6 +15,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 import db
 import solvers
+import frac_numeric as fnum
+import frac_algebra as falg
+import stats_solvers as stats
 
 app = Flask(__name__)
 
@@ -141,6 +145,35 @@ def db_status():
     return "<pre>" + "\n".join(lines) + "</pre>"
 
 
+# A runaway calculation (a huge number, a monstrous expression) must never freeze the
+# site for everybody, so each solver call is cut off after a few seconds.
+class _SolveTimeout(Exception):
+    pass
+
+
+def limited(seconds=8):
+    def deco(f):
+        @wraps(f)
+        def wrapped(*a, **kw):
+            def _handler(signum, frame):
+                raise _SolveTimeout()
+            try:
+                old = signal.signal(signal.SIGALRM, _handler)
+                signal.setitimer(signal.ITIMER_REAL, seconds)
+            except (ValueError, AttributeError):  # not the main thread / no SIGALRM
+                return f(*a, **kw)
+            try:
+                return f(*a, **kw)
+            except _SolveTimeout:
+                return jsonify({"ok": False, "error": "That problem took too long to solve. "
+                                                      "Try smaller numbers or a simpler expression."})
+            finally:
+                signal.setitimer(signal.ITIMER_REAL, 0)
+                signal.signal(signal.SIGALRM, old)
+        return wrapped
+    return deco
+
+
 TOPIC_LABELS = {
     "algebra": "Algebra",
     "geometry": "Geometry",
@@ -153,6 +186,8 @@ TOPIC_LABELS = {
     "surds": "Surds",
     "bearings": "Bearings",
     "earthgeo": "Longitude & Latitude",
+    "fractions": "Fractions",
+    "statistics": "Statistics",
 }
 
 
@@ -466,6 +501,7 @@ def teacher_logout():
 
 @app.route("/api/solve/algebra/<sub>", methods=["POST"])
 @student_required
+@limited(10)
 def api_algebra(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
@@ -497,6 +533,7 @@ def api_algebra(sub):
 
 @app.route("/api/solve/geometry/<sub>", methods=["POST"])
 @student_required
+@limited(10)
 def api_geometry(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
@@ -521,6 +558,7 @@ def api_geometry(sub):
 
 @app.route("/api/solve/graphs/<sub>", methods=["POST"])
 @student_required
+@limited(10)
 def api_graphs(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
@@ -547,6 +585,7 @@ def api_graphs(sub):
 
 @app.route("/api/solve/sequences/<sub>", methods=["POST"])
 @student_required
+@limited(10)
 def api_sequences(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
@@ -580,6 +619,7 @@ def api_sequences(sub):
 
 @app.route("/api/solve/sets/<sub>", methods=["POST"])
 @student_required
+@limited(10)
 def api_sets(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
@@ -618,6 +658,7 @@ def api_sets(sub):
 
 @app.route("/api/solve/trigonometry/<sub>", methods=["POST"])
 @student_required
+@limited(10)
 def api_trigonometry(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
@@ -656,6 +697,7 @@ def api_trigonometry(sub):
 
 @app.route("/api/solve/indices/<sub>", methods=["POST"])
 @student_required
+@limited(10)
 def api_indices(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
@@ -687,6 +729,7 @@ def api_indices(sub):
 
 @app.route("/api/solve/logarithms/<sub>", methods=["POST"])
 @student_required
+@limited(10)
 def api_logarithms(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
@@ -718,6 +761,7 @@ def api_logarithms(sub):
 
 @app.route("/api/solve/surds/<sub>", methods=["POST"])
 @student_required
+@limited(10)
 def api_surds(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
@@ -743,6 +787,7 @@ def api_surds(sub):
 
 @app.route("/api/solve/bearings/<sub>", methods=["POST"])
 @student_required
+@limited(10)
 def api_bearings(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
@@ -765,6 +810,7 @@ def api_bearings(sub):
 
 @app.route("/api/solve/earthgeo/<sub>", methods=["POST"])
 @student_required
+@limited(10)
 def api_earthgeo(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
@@ -806,6 +852,109 @@ def api_earthgeo(sub):
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
 
     db.log_attempt(sid, "earthgeo", sub, input_summary=summary, correct=None)
+    return jsonify(res)
+
+
+# --------------------------------------------- fractions & statistics API --
+
+def _s(data, key, maxlen=600):
+    v = data.get(key, "")
+    return str(v if v is not None else "")[:maxlen]
+
+
+@app.route("/api/solve/fractions/<sub>", methods=["POST"])
+@student_required
+@limited(8)
+def api_fractions(sub):
+    data = (request.get_json(force=True, silent=True) or {})
+    sid = session["student_id"]
+    text = _s(data, "text")
+    if sub == "lcm-hcf":
+        want = _s(data, "want", 10) or "both"
+        if fnum.has_letters(text):
+            res = falg.alg_lcm_hcf(text, want)
+        elif "/" in text:
+            res = fnum.lcm_hcf_fractions(text, want)
+        else:
+            res = fnum.lcm_hcf_numbers(text, want, _s(data, "method", 12) or "prime", _s(data, "unit", 30))
+    elif sub == "types":
+        res = falg.alg_types(text) if fnum.has_letters(text) else fnum.fraction_types(text)
+    elif sub == "simplify":
+        if fnum.has_letters(text):
+            res = falg.alg_expression(text)
+        elif fnum.re.fullmatch(r"\s*-?\d+\s*/\s*-?\d+\s*", text):
+            res = fnum.simplify_fraction(text)
+        else:
+            res = fnum.numeric_expression(text)
+    elif sub == "operations":
+        res = falg.alg_expression(text) if fnum.has_letters(text) else fnum.numeric_expression(text)
+    elif sub == "compare":
+        res = fnum.compare_fractions(text, _s(data, "order", 12) or "ascending")
+    elif sub == "convert":
+        kind = _s(data, "kind", 12)
+        fn = {"frac2dec": fnum.fraction_to_decimal, "dec2frac": fnum.decimal_to_fraction,
+              "frac2pct": fnum.fraction_to_percent, "pct2frac": fnum.percent_to_fraction}.get(kind)
+        res = fn(text) if fn else {"ok": False, "error": "Unknown conversion."}
+    elif sub == "word":
+        kind = _s(data, "kind", 12)
+        res = fnum.fraction_word(
+            kind, fraction=_s(data, "fraction", 40), quantity=_s(data, "quantity", 30), a=_s(data, "a", 30),
+            b=_s(data, "b", 30), part=_s(data, "part", 30), total=_s(data, "total", 30),
+            fractions=_s(data, "fractions", 200), basis=_s(data, "basis", 12), direction=_s(data, "direction", 12))
+    elif sub == "alg-factorise":
+        res = falg.alg_factorise(text)
+    elif sub == "alg-solve":
+        res = falg.alg_solve(text, _s(data, "var", 2) or None)
+    else:
+        return jsonify({"ok": False, "error": "Unknown solver."}), 400
+    db.log_attempt(sid, "fractions", sub, input_summary=text[:200], correct=None)
+    return jsonify(res)
+
+
+@app.route("/api/solve/statistics/<sub>", methods=["POST"])
+@student_required
+@limited(8)
+def api_statistics(sub):
+    data = (request.get_json(force=True, silent=True) or {})
+    sid = session["student_id"]
+    g = lambda k, n=600: _s(data, k, n)
+    if sub == "ungrouped":
+        res = stats.stats_ungrouped(g("values", 3000), g("freq", 3000), g("want", 12) or "all")
+        summary = g("values", 100)
+    elif sub == "grouped":
+        res = stats.stats_grouped(g("classes"), g("freq"), g("want", 12) or "all", g("assumed", 20), g("percentile", 10))
+        summary = g("classes", 100)
+    elif sub == "chart":
+        res = stats.stats_chart(g("kind", 12), classes=g("classes"), freq=g("freq"), labels=g("labels"),
+                                values=g("values", 3000), title=g("title", 80), read_value=g("read_value", 20),
+                                read_percentile=g("read_percentile", 10))
+        summary = g("kind", 12)
+    elif sub == "mean":
+        res = stats.mean_problem(g("kind", 20), values=g("values"), freqs=g("freqs"), mean=g("mean", 30), n1=g("n1", 20),
+                                 m1=g("m1", 20), n2=g("n2", 20), m2=g("m2", 20), n=g("n", 20), value=g("value", 20),
+                                 action=g("action", 10), weights=g("weights"))
+        summary = g("kind", 20)
+    elif sub == "prob-simple":
+        res = stats.prob_simple(g("favourable", 20), g("total", 20))
+        summary = f'{g("favourable", 20)}/{g("total", 20)}'
+    elif sub == "prob-combined":
+        res = stats.prob_combined(g("pa", 20), g("pb", 20), g("relation", 12) or "independent", g("pab", 20))
+        summary = "combined events"
+    elif sub == "prob-draw":
+        res = stats.prob_draw(g("items"), g("draws", 3) or 2, g("replacement", 5), g("sequence", 100))
+        summary = g("items", 100)
+    elif sub == "prob-dice":
+        res = stats.prob_dice_coins(g("kind", 12), g("event", 20), g("value", 10), g("n", 5) or "2")
+        summary = g("kind", 12)
+    elif sub == "perm-comb":
+        res = stats.perm_comb(g("kind", 12), g("n", 6), g("r", 6))
+        summary = f'{g("kind", 12)} n={g("n", 6)} r={g("r", 6)}'
+    elif sub == "arrangements":
+        res = stats.arrangements(g("word", 20), g("condition", 12) or "none", g("letters", 20))
+        summary = g("word", 20)
+    else:
+        return jsonify({"ok": False, "error": "Unknown solver."}), 400
+    db.log_attempt(sid, "statistics", sub, input_summary=summary, correct=None)
     return jsonify(res)
 
 
