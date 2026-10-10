@@ -18,6 +18,7 @@ import solvers
 import frac_numeric as fnum
 import frac_algebra as falg
 import stats_solvers as stats
+import topics
 
 app = Flask(__name__)
 
@@ -174,21 +175,8 @@ def limited(seconds=8):
     return deco
 
 
-TOPIC_LABELS = {
-    "algebra": "Algebra",
-    "geometry": "Geometry",
-    "graphs": "Graphs",
-    "sequences": "Sequences",
-    "sets": "Sets",
-    "trigonometry": "Trigonometry",
-    "indices": "Indices",
-    "logarithms": "Logarithms",
-    "surds": "Surds",
-    "bearings": "Bearings",
-    "earthgeo": "Longitude & Latitude",
-    "fractions": "Fractions",
-    "statistics": "Statistics",
-}
+TOPIC_LABELS = topics.TOPIC_LABELS
+topics._load()
 
 
 # ------------------------------------------------------------------- home --
@@ -391,7 +379,19 @@ def dashboard():
 def solve_page(topic):
     if topic not in TOPIC_LABELS:
         return redirect(url_for("dashboard"))
+    if topic in topics.SPECS:
+        return render_template("solve_generic.html", topic=topic, topic_label=TOPIC_LABELS[topic], spec=topics.SPECS[topic])
     return render_template(f"solve_{topic}.html", topic=topic, topic_label=TOPIC_LABELS[topic])
+
+
+@app.route("/topics")
+@student_required
+def topics_page():
+    groups = {}
+    for key, label, desc, group in topics.TOPIC_INFO:
+        if key in topics.SPECS or os.path.exists(os.path.join(app.root_path, "templates", f"solve_{key}.html")):
+            groups.setdefault(group, []).append((key, label, desc))
+    return render_template("topics.html", groups=list(groups.items()))
 
 
 # ------------------------------------------------------------- teacher pages --
@@ -955,6 +955,30 @@ def api_statistics(sub):
     else:
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
     db.log_attempt(sid, "statistics", sub, input_summary=summary, correct=None)
+    return jsonify(res)
+
+
+@app.route("/api/g/<topic>/<sub>", methods=["POST"])
+@student_required
+@limited(10)
+def api_generic(topic, sub):
+    handler = topics.HANDLERS.get(topic, {}).get(sub)
+    if handler is None:
+        return jsonify({"ok": False, "error": "Unknown solver."}), 400
+    raw = request.get_json(force=True, silent=True) or {}
+    if not isinstance(raw, dict):
+        raw = {}
+    data = {str(k)[:40]: str(v if v is not None else "")[:600] for k, v in raw.items()}
+    try:
+        res = handler(data)
+    except _SolveTimeout:
+        raise
+    except Exception:
+        app.logger.exception("solver %s/%s crashed", topic, sub)
+        res = {"ok": False, "steps": [], "result": None,
+               "error": "Sorry, something went wrong with that problem. Please check what you typed and try again."}
+    summary = " | ".join(v for v in data.values() if v)[:200]
+    db.log_attempt(session["student_id"], topic, sub, input_summary=summary, correct=None)
     return jsonify(res)
 
 

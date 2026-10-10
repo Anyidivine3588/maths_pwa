@@ -42,7 +42,7 @@ Then open http://127.0.0.1:5000 in your browser. The database file
    - `SECRET_KEY` — any long random string (used to sign login sessions)
    - `TEACHER_SIGNUP_CODE` — a code you choose and keep private; only people
      who know this code can register as a teacher. Change this from the
-     default (`TEACHME123`) before going live.
+     value before going live. There is no default any more: if unset, teacher sign-up is closed.
 
 6. Click **Deploy**. Render gives you a URL like
    `https://maths-assist-yourname.onrender.com` — that's your permanent link.

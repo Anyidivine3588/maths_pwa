@@ -294,3 +294,31 @@ th { color: var(--muted); font-weight: 600; }
 .roster-row:hover { background: #f9fafb; }
 
 .plot-img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); margin-top: 12px; }
+
+/* ---- stacked fractions, small tables and highlights (Fractions & Statistics) ---- */
+.frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center;
+        margin: 0 3px; line-height: 1.25; font-size: 0.95em; }
+.frac > .fn { padding: 0 4px; border-bottom: 2px solid currentColor; }
+.frac > .fd { padding: 0 4px; }
+.stat-table { width: auto; max-width: 100%; display: block; overflow-x: auto; margin: 8px 0; }
+.stat-table th, .stat-table td { padding: 4px 10px; border: 1px solid var(--border); text-align: center; white-space: nowrap; }
+.stat-table th { background: #eef2ff; color: var(--text, #111); }
+.hl { background: #fde68a; border-radius: 3px; padding: 0 2px; font-weight: 700; }
+.field-group { display: none; }
+.field-group.active { display: block; }
+
+/* ---- generic topic pages and the Topics menu ---- */
+.gf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 4px 14px; }
+.gf.wide { grid-column: 1 / -1; }
+.gf { min-width: 0; }
+.topic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 10px; }
+.topic-card { display: block; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+              text-decoration: none; color: inherit; transition: box-shadow .15s, transform .15s; }
+.topic-card:hover { box-shadow: 0 4px 14px rgba(30, 41, 99, .12); transform: translateY(-2px); }
+.topic-card h3 { margin: 0 0 6px; font-size: 1rem; color: var(--primary); }
+.topic-card p { margin: 0; font-size: .85rem; color: var(--muted); }
+
+/* matrices */
+table.mx { display: inline-table; border-collapse: separate; border-spacing: 0; margin: 2px 8px; vertical-align: middle;
+           border-left: 2px solid #111827; border-right: 2px solid #111827; border-radius: 6px; }
+table.mx td { padding: 3px 10px; text-align: center; border: none; font-size: 1.02em; }

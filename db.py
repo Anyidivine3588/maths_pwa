@@ -169,11 +169,17 @@ def now_iso():
 
 
 def log_attempt(student_id, topic, subtopic, input_summary=None, correct=None):
-    conn = get_db()
-    conn.execute(
-        "INSERT INTO attempts (student_id, topic, subtopic, input_summary, correct, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (student_id, topic, subtopic, input_summary, correct, now_iso()),
-    )
-    conn.commit()
-    conn.close()
+    # A failure here (e.g. a stale/old login session pointing at a student
+    # that no longer exists) must never break the actual solver result the
+    # student is waiting on - so any error here is swallowed, not raised.
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO attempts (student_id, topic, subtopic, input_summary, correct, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (student_id, topic, subtopic, input_summary, correct, now_iso()),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"log_attempt failed (ignored, solver result still returned): {e!r}")
