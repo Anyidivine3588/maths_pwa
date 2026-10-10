@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Teacher Dashboard</h1>
+<p style="color:var(--muted);">Welcome, {{ session.get('teacher_name') }}. Here's how your class is using Maths Assist.</p>
+
+<div class="grid" style="margin-bottom:20px;">
+  <div class="stat"><div class="num">{{ total_students }}</div><div class="label">Registered students</div></div>
+  <div class="stat"><div class="num">{{ active_students }}</div><div class="label">Students who've practiced</div></div>
+  <div class="stat"><div class="num">{{ total_attempts }}</div><div class="label">Total problems solved</div></div>
+</div>
+
+<div class="card">
+  <h2>Activity — last 7 days</h2>
+  {% set max_count = (trend|map(attribute='count')|max) or 1 %}
+  <div class="bar-chart">
+    {% for d in trend %}
+      <div class="bar" style="height:{{ (d.count / max_count * 90) if max_count else 2 }}px;">
+        <span>{{ d.date[5:] }}</span>
+      </div>
+    {% endfor %}
+  </div>
+  <p style="margin-top:26px; font-size:0.85rem; color:var(--muted);">
+    {% if total_attempts == 0 %}
+      No activity logged yet — encourage students to try a solver.
+    {% else %}
+      Bars show problems solved per day across the whole class.
+    {% endif %}
+  </p>
+</div>
+
+<div class="card">
+  <h2>Topic engagement</h2>
+  {% if topic_counts %}
+    {% for t, c in topic_counts.items() %}
+      <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:0.9rem;">
+          <span>{{ topic_labels.get(t, t)|title }}</span><span>{{ c }}</span>
+        </div>
+        <div style="background:var(--border); border-radius:6px; height:8px; overflow:hidden;">
+          <div style="background:var(--primary); height:8px; width:{{ (c / total_attempts * 100) if total_attempts else 0 }}%;"></div>
+        </div>
+      </div>
+    {% endfor %}
+    <p style="font-size:0.85rem; color:var(--muted); margin-top:10px;">
+      Least-practiced topic right now: <strong>{{ topic_labels.get(least_practiced[0], least_practiced[0]) }}</strong> —
+      worth flagging in class if it's an important part of the syllabus.
+    </p>
+  {% else %}
+    <p style="color:var(--muted);">No topic activity yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Most-used tools</h2>
+  {% if subtopic_counts %}
+  <table>
+    <tr><th>Tool</th><th>Uses</th></tr>
+    {% for name, c in subtopic_counts %}
+      <tr><td>{{ name|replace("-", " ")|title }}</td><td>{{ c }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}
+    <p style="color:var(--muted);">No data yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Student roster</h2>
+  {% if roster %}
+  <table>
+    <tr><th>Name</th><th>Class</th><th>Problems solved</th><th>Topics covered</th><th>Last active</th></tr>
+    {% for r in roster %}
+    <tr class="roster-row" onclick="window.location='{{ url_for('teacher_student_detail', student_id=r.id) }}'">
+      <td>{{ r.full_name }}</td>
+      <td>{{ r.class_name or "—" }}</td>
+      <td>{{ r.attempts }}</td>
+      <td>{{ r.topics_covered }}</td>
+      <td>{{ r.last_active[:16].replace("T"," ") if r.last_active else "Never" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+    <p style="color:var(--muted);">No students registered yet — share the registration link with your class.</p>
+  {% endif %}
+</div>
+{% endblock %}
