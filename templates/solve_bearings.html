@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Bearings</h1>
+
+<div class="tabs">
+  <div class="tab active" data-tab="convert" onclick="showTab('convert')">Convert Bearing</div>
+  <div class="tab" data-tab="back" onclick="showTab('back')">Back Bearing</div>
+  <div class="tab" data-tab="journey" onclick="showTab('journey')">Journey (Word Problem)</div>
+</div>
+
+<div id="convert" class="panel active card">
+  <h2>Convert a Bearing</h2>
+  <p class="hint">Type either a three-figure bearing (e.g. 030, 210) or a compass bearing
+     (e.g. N30E, S45W) -- the solver converts it to the other form.</p>
+  <label>Bearing</label>
+  <input type="text" id="bc_bearing" placeholder="N30E">
+  <button onclick="postSolve('/api/solve/bearings/convert', {bearing: document.getElementById('bc_bearing').value}, 'bc_out')">Solve</button>
+  <div id="bc_out"></div>
+</div>
+
+<div id="back" class="panel card">
+  <h2>Back Bearing</h2>
+  <p class="hint">The bearing of the return journey (add or subtract 180 degrees).</p>
+  <label>Bearing (degrees)</label>
+  <input type="text" id="bb_bearing" placeholder="60">
+  <button onclick="postSolve('/api/solve/bearings/back', {bearing: document.getElementById('bb_bearing').value}, 'bb_out')">Solve</button>
+  <div id="bb_out"></div>
+</div>
+
+<div id="journey" class="panel card">
+  <h2>Journey — Find Distance and Bearing (word problem)</h2>
+  <p class="hint">The classic WAEC pattern: "A ship sails from A on a bearing of ... for a
+     distance of ... to B, then from B on a bearing of ... for a distance of ... to C. Find
+     the distance and bearing of C from A." Fill in both legs below -- a sketch is drawn too.</p>
+  <div class="two-col">
+    <div><label>Distance A to B</label><input type="text" id="bj_d1" placeholder="100"></div>
+    <div><label>Bearing A to B (degrees)</label><input type="text" id="bj_b1" placeholder="60"></div>
+    <div><label>Distance B to C</label><input type="text" id="bj_d2" placeholder="60"></div>
+    <div><label>Bearing B to C (degrees)</label><input type="text" id="bj_b2" placeholder="300"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/bearings/journey', {d1: document.getElementById('bj_d1').value, b1: document.getElementById('bj_b1').value, d2: document.getElementById('bj_d2').value, b2: document.getElementById('bj_b2').value}, 'bj_out')">Solve</button>
+  <div id="bj_out"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+{% endblock %}

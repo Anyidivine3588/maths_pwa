@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Trigonometry</h1>
+
+<div class="tabs">
+  <div class="tab active" data-tab="right" onclick="showTab('right')">Right Triangle (SOHCAHTOA)</div>
+  <div class="tab" data-tab="sine" onclick="showTab('sine')">Sine Rule</div>
+  <div class="tab" data-tab="cosine" onclick="showTab('cosine')">Cosine Rule</div>
+  <div class="tab" data-tab="elev" onclick="showTab('elev')">Elevation / Depression</div>
+</div>
+
+<div id="right" class="panel active card">
+  <h2>Right-Angled Triangle</h2>
+  <p class="hint">Fill in exactly TWO of the four values (opposite, adjacent, hypotenuse, angle) —
+     the solver finds the rest.</p>
+  <div class="two-col">
+    <div><label>Opposite</label><input type="text" id="rt_opp" placeholder=""></div>
+    <div><label>Adjacent</label><input type="text" id="rt_adj" placeholder=""></div>
+    <div><label>Hypotenuse</label><input type="text" id="rt_hyp" placeholder=""></div>
+    <div><label>Angle (degrees)</label><input type="text" id="rt_ang" placeholder=""></div>
+  </div>
+  <button onclick="postSolve('/api/solve/trigonometry/right-triangle', {opposite: document.getElementById('rt_opp').value, adjacent: document.getElementById('rt_adj').value, hypotenuse: document.getElementById('rt_hyp').value, angle: document.getElementById('rt_ang').value}, 'rt_out')">Solve</button>
+  <div id="rt_out"></div>
+</div>
+
+<div id="sine" class="panel card">
+  <h2>Sine Rule</h2>
+  <p class="hint">a/sin(A) = b/sin(B) = c/sin(C). Fill in a full side/angle pair (e.g. a and A)
+     plus at least one more known value.</p>
+  <div class="two-col">
+    <div><label>Side a</label><input type="text" id="sr_a" placeholder=""></div>
+    <div><label>Angle A (degrees)</label><input type="text" id="sr_A" placeholder=""></div>
+    <div><label>Side b</label><input type="text" id="sr_b" placeholder=""></div>
+    <div><label>Angle B (degrees)</label><input type="text" id="sr_B" placeholder=""></div>
+    <div><label>Side c</label><input type="text" id="sr_c" placeholder=""></div>
+    <div><label>Angle C (degrees)</label><input type="text" id="sr_C" placeholder=""></div>
+  </div>
+  <button onclick="postSolve('/api/solve/trigonometry/sine-rule', {a: document.getElementById('sr_a').value, A: document.getElementById('sr_A').value, b: document.getElementById('sr_b').value, B: document.getElementById('sr_B').value, c: document.getElementById('sr_c').value, C: document.getElementById('sr_C').value}, 'sr_out')">Solve</button>
+  <div id="sr_out"></div>
+</div>
+
+<div id="cosine" class="panel card">
+  <h2>Cosine Rule</h2>
+  <p class="hint">Either fill in all three sides (a, b, c) to find angle C, OR fill in two
+     sides (a, b) and the included angle C to find side c.</p>
+  <div class="two-col">
+    <div><label>Side a</label><input type="text" id="cr_a" placeholder=""></div>
+    <div><label>Side b</label><input type="text" id="cr_b" placeholder=""></div>
+    <div><label>Side c</label><input type="text" id="cr_c" placeholder=""></div>
+    <div><label>Angle C (degrees)</label><input type="text" id="cr_C" placeholder=""></div>
+  </div>
+  <button onclick="postSolve('/api/solve/trigonometry/cosine-rule', {a: document.getElementById('cr_a').value, b: document.getElementById('cr_b').value, c: document.getElementById('cr_c').value, C: document.getElementById('cr_C').value}, 'cr_out')">Solve</button>
+  <div id="cr_out"></div>
+</div>
+
+<div id="elev" class="panel card">
+  <h2>Angle of Elevation / Depression</h2>
+  <p class="hint">Fill in exactly TWO of the three values (height, distance, angle).</p>
+  <div class="two-col">
+    <div><label>Height</label><input type="text" id="el_h" placeholder=""></div>
+    <div><label>Distance</label><input type="text" id="el_d" placeholder=""></div>
+    <div><label>Angle (degrees)</label><input type="text" id="el_ang" placeholder=""></div>
+  </div>
+  <button onclick="postSolve('/api/solve/trigonometry/elevation', {height: document.getElementById('el_h').value, distance: document.getElementById('el_d').value, angle: document.getElementById('el_ang').value}, 'el_out')">Solve</button>
+  <div id="el_out"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+{% endblock %}
