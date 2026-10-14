@@ -24,6 +24,7 @@ TOPIC_INFO = [
     ("matrices", "Matrices", "Operations, determinants, inverses, simultaneous equations and transformations.", "Number & Algebra"),
     ("binops", "Binary Operations & Modular Arithmetic", "Closure, identity, inverse, tables, congruences and remainders.", "Number & Algebra"),
     # --- Geometry & Trigonometry
+    ("angles", "Angles", "All angle rules with clear diagrams: lines, parallel lines, triangles, quadrilaterals, polygons and circles.", "Geometry & Trigonometry"),
     ("geometry", "Geometry", "Area, perimeter, volume, Pythagoras and coordinate geometry.", "Geometry & Trigonometry"),
     ("circles", "Circle Theorems & Mensuration", "Circle theorems with diagrams, arcs, sectors, cones, spheres and similar figures.", "Geometry & Trigonometry"),
     ("loci", "Loci & Constructions", "Construction steps with drawings and combined loci regions.", "Geometry & Trigonometry"),
@@ -54,7 +55,7 @@ def _load():
     import importlib
     import logging
     for mod in ("t_variation", "t_bases", "t_percent", "t_inequalities", "t_matrices",
-                "t_calculus", "t_circles", "t_loci", "t_binops"):
+                "t_calculus", "t_circles", "t_loci", "t_binops", "t_angles"):
         try:
             importlib.import_module(mod)
         except ModuleNotFoundError as e:  # module not built yet / missing
