@@ -25,6 +25,12 @@ TOPIC_INFO = [
     ("binops", "Binary Operations & Modular Arithmetic", "Closure, identity, inverse, tables, congruences and remainders.", "Number & Algebra"),
     # --- Geometry & Trigonometry
     ("angles", "Angles", "All angle rules with clear diagrams: lines, parallel lines, triangles, quadrilaterals, polygons and circles.", "Geometry & Trigonometry"),
+    ("transform", "Transformations", "Reflection, rotation, translation, enlargement and combined transformations with diagrams.", "Geometry & Trigonometry"),
+    ("vectors", "Vectors", "Column vectors, magnitude, direction, position vectors, ratio division and parallel vectors.", "Geometry & Trigonometry"),
+    ("conics", "Ellipse, Parabola & Hyperbola", "Analyse and draw conic sections: foci, vertices, directrix, asymptotes and eccentricity.", "Graphs & Calculus"),
+    ("quadgraph", "Quadratic Functions & Graphs", "Vertex, axis of symmetry, roots, intercepts, completing the square and sketching.", "Graphs & Calculus"),
+    ("numsense", "Standard Form & Approximation", "Standard form, significant figures, decimal places, estimation and error.", "Number & Algebra"),
+    ("commerce", "Commercial Arithmetic", "Tax, VAT, rates, commission, discount, hire purchase, wages and currency exchange.", "Number & Algebra"),
     ("geometry", "Geometry", "Area, perimeter, volume, Pythagoras and coordinate geometry.", "Geometry & Trigonometry"),
     ("circles", "Circle Theorems & Mensuration", "Circle theorems with diagrams, arcs, sectors, cones, spheres and similar figures.", "Geometry & Trigonometry"),
     ("loci", "Loci & Constructions", "Construction steps with drawings and combined loci regions.", "Geometry & Trigonometry"),
@@ -55,7 +61,7 @@ def _load():
     import importlib
     import logging
     for mod in ("t_variation", "t_bases", "t_percent", "t_inequalities", "t_matrices",
-                "t_calculus", "t_circles", "t_loci", "t_binops", "t_angles"):
+                "t_calculus", "t_circles", "t_loci", "t_binops", "t_angles", "t_conics", "t_transform", "t_quadgraph", "t_vectors", "t_numsense", "t_commerce"):
         try:
             importlib.import_module(mod)
         except ModuleNotFoundError as e:  # module not built yet / missing

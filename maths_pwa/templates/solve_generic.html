@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ spec.title }}</h1>
+{% if spec.intro %}<p class="hint">{{ spec.intro|safe }}</p>{% endif %}
+
+<div class="tabs">
+  {% for t in spec.tabs %}
+  <div class="tab{% if loop.first %} active{% endif %}" data-tab="{{ t.id }}" onclick="showTab('{{ t.id }}')">{{ t.label }}</div>
+  {% endfor %}
+</div>
+
+{% for t in spec.tabs %}
+<div id="{{ t.id }}" class="panel card{% if loop.first %} active{% endif %}">
+  <h2>{{ t.title or t.label }}</h2>
+  {% if t.hint %}<p class="hint">{{ t.hint|safe }}</p>{% endif %}
+  <div class="gf-grid">
+    {% for f in t.fields %}
+    <div class="gf{% if f.wide or f.type == 'text' and not f.half %} wide{% endif %}" data-name="{{ f.name }}"
+         {% if f.show_if %}data-showif='{{ f.show_if|tojson }}'{% endif %}>
+      <label for="{{ t.id }}__{{ f.name }}">{{ f.label|safe }}</label>
+      {% if f.type == 'select' %}
+      <select id="{{ t.id }}__{{ f.name }}" name="{{ f.name }}">
+        {% for v, l in f.options %}<option value="{{ v }}">{{ l|safe }}</option>{% endfor %}
+      </select>
+      {% else %}
+      <input type="text" id="{{ t.id }}__{{ f.name }}" name="{{ f.name }}" placeholder="{{ f.placeholder or '' }}" value="{{ f.placeholder or '' }}" maxlength="{{ f.maxlength or 300 }}" autocomplete="off">
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <button onclick="runGeneric('{{ topic }}', '{{ t.endpoint }}', '{{ t.id }}')">{{ t.button or 'Solve' }}</button>
+  {% if t.note %}<p class="hint" style="margin-top:10px;">{{ t.note|safe }}</p>{% endif %}
+  <div id="{{ t.id }}__out"></div>
+</div>
+{% endfor %}
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+<script>initGeneric();</script>
+{% endblock %}

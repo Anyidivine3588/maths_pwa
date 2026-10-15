@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>All Topics</h1>
+<p class="hint">Pick a topic. Every solver shows its working step by step, and most draw the diagram or graph for you.</p>
+{% for group, items in groups %}
+<h2 style="margin-top:26px;">{{ group }}</h2>
+<div class="topic-grid">
+  {% for key, label, desc in items %}
+  <a class="topic-card" href="{{ url_for('solve_page', topic=key) }}">
+    <h3>{{ label }}</h3>
+    <p>{{ desc }}</p>
+  </a>
+  {% endfor %}
+</div>
+{% endfor %}
+{% endblock %}

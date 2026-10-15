@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Geometry</h1>
+
+<div class="tabs">
+  <div class="tab active" data-tab="ap" onclick="showTab('ap')">Area &amp; Perimeter</div>
+  <div class="tab" data-tab="pyth" onclick="showTab('pyth')">Pythagoras</div>
+  <div class="tab" data-tab="coord" onclick="showTab('coord')">Coordinate Geometry</div>
+</div>
+
+<div id="ap" class="panel active card">
+  <h2>Area &amp; Perimeter</h2>
+  <label>Shape</label>
+  <select id="ap_shape" onchange="renderShapeFields()">
+    <option value="rectangle">Rectangle</option>
+    <option value="square">Square</option>
+    <option value="triangle">Triangle (Heron's)</option>
+    <option value="circle">Circle</option>
+    <option value="parallelogram">Parallelogram</option>
+    <option value="trapezium">Trapezium</option>
+    <option value="rhombus">Rhombus</option>
+    <option value="cone">Cone</option>
+    <option value="cylinder">Cylinder</option>
+  </select>
+  <div id="ap_fields"></div>
+  <button onclick="submitAreaPerimeter()">Solve</button>
+  <div id="ap_out"></div>
+</div>
+
+<div id="pyth" class="panel card">
+  <h2>Pythagoras' Theorem</h2>
+  <label>What do you want to find?</label>
+  <select id="pyth_mode" onchange="renderPythFields()">
+    <option value="hypotenuse">Hypotenuse (know both legs a, b)</option>
+    <option value="leg">A leg (know one leg and hypotenuse)</option>
+  </select>
+  <div id="pyth_fields"></div>
+  <button onclick="submitPythagoras()">Solve</button>
+  <div id="pyth_out"></div>
+</div>
+
+<div id="coord" class="panel card">
+  <h2>Coordinate Geometry</h2>
+  <div class="two-col">
+    <div><label>x1</label><input type="text" id="c_x1" placeholder="1"></div>
+    <div><label>y1</label><input type="text" id="c_y1" placeholder="2"></div>
+  </div>
+  <div class="two-col">
+    <div><label>x2</label><input type="text" id="c_x2" placeholder="4"></div>
+    <div><label>y2</label><input type="text" id="c_y2" placeholder="6"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/geometry/coordinate', {x1: document.getElementById('c_x1').value, y1: document.getElementById('c_y1').value, x2: document.getElementById('c_x2').value, y2: document.getElementById('c_y2').value}, 'coord_out')">Solve</button>
+  <div id="coord_out"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+<script>
+const SHAPE_FIELDS = {
+  rectangle: [['length','Length'], ['width','Width']],
+  square: [['side','Side']],
+  triangle: [['a','Side a'], ['b','Side b'], ['c','Side c']],
+  circle: [['radius','Radius']],
+  parallelogram: [['base','Base'], ['height','Height']],
+  trapezium: [['a','Parallel side a'], ['b','Parallel side b'], ['height','Height']],
+  rhombus: [['d1','Diagonal 1'], ['d2','Diagonal 2']],
+  cone: [['radius','Radius'], ['height','Height']],
+  cylinder: [['radius','Radius'], ['height','Height']],
+};
+
+function renderShapeFields() {
+  const shape = document.getElementById('ap_shape').value;
+  const container = document.getElementById('ap_fields');
+  container.innerHTML = '';
+  SHAPE_FIELDS[shape].forEach(([key, label]) => {
+    container.innerHTML += `<label>${label}</label><input type="text" id="ap_${key}">`;
+  });
+}
+renderShapeFields();
+
+function submitAreaPerimeter() {
+  const shape = document.getElementById('ap_shape').value;
+  const payload = { shape };
+  SHAPE_FIELDS[shape].forEach(([key]) => {
+    payload[key] = document.getElementById(`ap_${key}`).value;
+  });
+  postSolve('/api/solve/geometry/area-perimeter', payload, 'ap_out');
+}
+
+function renderPythFields() {
+  const mode = document.getElementById('pyth_mode').value;
+  const container = document.getElementById('pyth_fields');
+  if (mode === 'hypotenuse') {
+    container.innerHTML = `<div class="two-col"><div><label>Leg a</label><input type="text" id="p_a"></div><div><label>Leg b</label><input type="text" id="p_b"></div></div>`;
+  } else {
+    container.innerHTML = `<div class="two-col"><div><label>Known leg</label><input type="text" id="p_a"></div><div><label>Hypotenuse</label><input type="text" id="p_c"></div></div>`;
+  }
+}
+renderPythFields();
+
+function submitPythagoras() {
+  const mode = document.getElementById('pyth_mode').value;
+  const payload = { mode };
+  if (mode === 'hypotenuse') {
+    payload.a = document.getElementById('p_a').value;
+    payload.b = document.getElementById('p_b').value;
+  } else {
+    payload.a = document.getElementById('p_a').value;
+    payload.c = document.getElementById('p_c').value;
+  }
+  postSolve('/api/solve/geometry/pythagoras', payload, 'pyth_out');
+}
+</script>
+{% endblock %}
