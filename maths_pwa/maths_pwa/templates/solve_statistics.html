@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Statistics &amp; Probability</h1>
+<p class="hint">Covers the WAEC, NECO and JAMB syllabus: mean, median, mode, range, quartiles, variance and standard deviation
+   (ungrouped, frequency tables and grouped data), histogram, frequency polygon, ogive, bar chart, pie chart,
+   stem-and-leaf, probability (including tree diagrams), permutations and combinations.</p>
+
+<div class="tabs">
+  <div class="tab active" data-tab="ung" onclick="showTab('ung')">Ungrouped / Frequency Table</div>
+  <div class="tab" data-tab="grp" onclick="showTab('grp')">Grouped Data</div>
+  <div class="tab" data-tab="chart" onclick="showTab('chart')">Charts &amp; Graphs</div>
+  <div class="tab" data-tab="mean" onclick="showTab('mean')">Mean Problems</div>
+  <div class="tab" data-tab="pr1" onclick="showTab('pr1')">Probability: Basic</div>
+  <div class="tab" data-tab="pr2" onclick="showTab('pr2')">Probability: A or B</div>
+  <div class="tab" data-tab="pr3" onclick="showTab('pr3')">Probability: Draws &amp; Tree</div>
+  <div class="tab" data-tab="pr4" onclick="showTab('pr4')">Dice &amp; Coins</div>
+  <div class="tab" data-tab="pc" onclick="showTab('pc')">Permutation &amp; Combination</div>
+  <div class="tab" data-tab="arr" onclick="showTab('arr')">Arrangement of Letters</div>
+</div>
+
+<div id="ung" class="panel active card">
+  <h2>Ungrouped Data and Frequency Tables</h2>
+  <p class="hint"><b>Raw data:</b> type the numbers, e.g. 3, 7, 8, 5, 12, 14, 21, 13, 18, 7 and leave the frequency box empty.<br>
+     <b>Frequency table:</b> type the values (x) in the first box and their frequencies (f) in the second, in the same order.</p>
+  <label>Values (x)</label>
+  <input type="text" id="ug_values" placeholder="3, 7, 8, 5, 12, 14, 21, 13, 18, 7">
+  <label>Frequencies (f) &mdash; optional</label>
+  <input type="text" id="ug_freq" placeholder="(leave empty for raw data)  or e.g. 3, 5, 8, 2, 2">
+  <label>Find</label>
+  <select id="ug_want">
+    <option value="all">Everything (mean, median, mode, range, quartiles, variance, SD)</option>
+    <option value="mean">Mean</option><option value="median">Median</option><option value="mode">Mode</option>
+    <option value="range">Range</option><option value="quartiles">Quartiles &amp; interquartile range</option>
+    <option value="sd">Variance, standard deviation &amp; mean deviation</option>
+  </select>
+  <button onclick="postSolve('/api/solve/statistics/ungrouped', {values: val('ug_values'), freq: val('ug_freq'), want: val('ug_want')}, 'ug_out')">Solve</button>
+  <div id="ug_out"></div>
+</div>
+
+<div id="grp" class="panel card">
+  <h2>Grouped Data</h2>
+  <p class="hint">Type the class intervals separated by commas, e.g. 1-10, 11-20, 21-30, 31-40, 41-50, and the frequencies in the same order.
+     Classes like 0-10, 10-20, 20-30 also work. Gives the table with boundaries, mid-points and cumulative frequency.</p>
+  <label>Class intervals</label>
+  <input type="text" id="gp_classes" placeholder="1-10, 11-20, 21-30, 31-40, 41-50">
+  <label>Frequencies</label>
+  <input type="text" id="gp_freq" placeholder="4, 9, 16, 12, 9">
+  <div class="two-col">
+    <div><label>Find</label>
+      <select id="gp_want">
+        <option value="all">Everything</option><option value="mean">Mean</option><option value="median">Median</option>
+        <option value="mode">Mode</option><option value="quartiles">Quartiles &amp; IQR</option><option value="sd">Variance &amp; standard deviation</option>
+      </select></div>
+    <div><label>Percentile (optional, e.g. 90)</label><input type="text" id="gp_pct" placeholder="90"></div>
+  </div>
+  <label>Assumed mean (optional &mdash; leave blank to pick automatically)</label>
+  <input type="text" id="gp_assumed" placeholder="25.5">
+  <button onclick="postSolve('/api/solve/statistics/grouped', {classes: val('gp_classes'), freq: val('gp_freq'), want: val('gp_want'), percentile: val('gp_pct'), assumed: val('gp_assumed')}, 'gp_out')">Solve</button>
+  <div id="gp_out"></div>
+</div>
+
+<div id="chart" class="panel card">
+  <h2>Charts and Graphs (with a drawing)</h2>
+  <label>Draw a</label>
+  <select id="ch_kind" onchange="showGroup('ch_kind')">
+    <option value="histogram">Histogram (also finds the mode from the graph)</option>
+    <option value="polygon">Frequency polygon</option>
+    <option value="ogive">Ogive / cumulative frequency curve (reads median, quartiles, percentiles)</option>
+    <option value="bar">Bar chart</option>
+    <option value="pie">Pie chart (finds the angles)</option>
+    <option value="stemleaf">Stem-and-leaf plot</option>
+  </select>
+  <div class="field-group active" data-for="ch_kind" data-show="histogram polygon ogive">
+    <label>Class intervals</label><input type="text" id="ch_classes" placeholder="1-10, 11-20, 21-30, 31-40, 41-50">
+    <label>Frequencies</label><input type="text" id="ch_freq" placeholder="4, 9, 16, 12, 9">
+  </div>
+  <div class="field-group" data-for="ch_kind" data-show="ogive">
+    <div class="two-col">
+      <div><label>Read the cumulative frequency at x = (optional)</label><input type="text" id="ch_rv" placeholder="25"></div>
+      <div><label>Find the percentile (optional)</label><input type="text" id="ch_rp" placeholder="90"></div>
+    </div>
+  </div>
+  <div class="field-group" data-for="ch_kind" data-show="bar pie">
+    <label>Items (commas)</label><input type="text" id="ch_labels" placeholder="Maths, English, Science, Art">
+    <label>Frequencies / amounts (same order)</label><input type="text" id="ch_values" placeholder="40, 30, 20, 10">
+  </div>
+  <div class="field-group" data-for="ch_kind" data-show="stemleaf">
+    <label>Data (whole numbers)</label><input type="text" id="ch_data" placeholder="23, 35, 31, 28, 44, 39, 23, 51, 47, 32">
+  </div>
+  <label>Title (optional)</label>
+  <input type="text" id="ch_title" placeholder="Marks scored by students" maxlength="80">
+  <button onclick="(function(){const k=val('ch_kind'); postSolve('/api/solve/statistics/chart', {kind:k, classes: val('ch_classes'), freq: val('ch_freq'), labels: val('ch_labels'), values: k==='stemleaf'?val('ch_data'):val('ch_values'), title: val('ch_title'), read_value: val('ch_rv'), read_percentile: val('ch_rp')}, 'ch_out');})()">Draw &amp; Solve</button>
+  <div id="ch_out"></div>
+</div>
+
+<div id="mean" class="panel card">
+  <h2>Mean Problems</h2>
+  <label>Type of problem</label>
+  <select id="mn_kind" onchange="showGroup('mn_kind')">
+    <option value="missing-value">Find a missing number when the mean is given</option>
+    <option value="missing-freq">Find a missing frequency (k) when the mean is given</option>
+    <option value="combined">Combined mean of two groups</option>
+    <option value="add-remove">New mean after adding / removing a number</option>
+    <option value="weighted">Weighted mean</option>
+  </select>
+  <div class="field-group active" data-for="mn_kind" data-show="missing-value">
+    <label>Numbers (write x for the missing one)</label><input type="text" id="mn_v1" placeholder="5, 8, x, 12, 6">
+  </div>
+  <div class="field-group" data-for="mn_kind" data-show="missing-freq">
+    <label>Values (x)</label><input type="text" id="mn_v2" placeholder="1, 2, 3, 4">
+    <label>Frequencies (write k, 2k or k+1 for the unknown)</label><input type="text" id="mn_f2" placeholder="3, 5, k, 4">
+  </div>
+  <div class="field-group active" data-for="mn_kind" data-show="missing-value missing-freq">
+    <label>The mean is</label><input type="text" id="mn_mean" placeholder="8">
+  </div>
+  <div class="field-group" data-for="mn_kind" data-show="combined">
+    <div class="two-col">
+      <div><label>Group 1: how many</label><input type="text" id="mn_n1" placeholder="20"></div>
+      <div><label>Group 1: mean</label><input type="text" id="mn_m1" placeholder="50"></div>
+      <div><label>Group 2: how many</label><input type="text" id="mn_n2" placeholder="30"></div>
+      <div><label>Group 2: mean</label><input type="text" id="mn_m2" placeholder="60"></div>
+    </div>
+  </div>
+  <div class="field-group" data-for="mn_kind" data-show="add-remove">
+    <div class="two-col">
+      <div><label>How many numbers (n)</label><input type="text" id="mn_n" placeholder="10"></div>
+      <div><label>Their mean</label><input type="text" id="mn_mean2" placeholder="15"></div>
+      <div><label>Number added / removed</label><input type="text" id="mn_val" placeholder="26"></div>
+      <div><label>Action</label><select id="mn_action"><option value="add">Add</option><option value="remove">Remove</option></select></div>
+    </div>
+  </div>
+  <div class="field-group" data-for="mn_kind" data-show="weighted">
+    <label>Values</label><input type="text" id="mn_v3" placeholder="70, 80, 90">
+    <label>Weights</label><input type="text" id="mn_w" placeholder="1, 2, 3">
+  </div>
+  <button onclick="(function(){const k=val('mn_kind'); postSolve('/api/solve/statistics/mean', {kind:k, values: k==='missing-value'?val('mn_v1'):k==='missing-freq'?val('mn_v2'):val('mn_v3'), freqs: val('mn_f2'), mean: k==='add-remove'?val('mn_mean2'):val('mn_mean'), n1: val('mn_n1'), m1: val('mn_m1'), n2: val('mn_n2'), m2: val('mn_m2'), n: val('mn_n'), value: val('mn_val'), action: val('mn_action'), weights: val('mn_w')}, 'mn_out');})()">Solve</button>
+  <div id="mn_out"></div>
+</div>
+
+<div id="pr1" class="panel card">
+  <h2>Basic Probability</h2>
+  <div class="two-col">
+    <div><label>Number of favourable outcomes</label><input type="text" id="p1_f" placeholder="3"></div>
+    <div><label>Total number of outcomes</label><input type="text" id="p1_t" placeholder="8"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/statistics/prob-simple', {favourable: val('p1_f'), total: val('p1_t')}, 'p1_out')">Solve</button>
+  <div id="p1_out"></div>
+</div>
+
+<div id="pr2" class="panel card">
+  <h2>Probability of A and B / A or B</h2>
+  <p class="hint">Type probabilities as fractions (1/3), decimals (0.25) or percentages (25%).</p>
+  <div class="two-col">
+    <div><label>P(A)</label><input type="text" id="p2_a" placeholder="1/3"></div>
+    <div><label>P(B)</label><input type="text" id="p2_b" placeholder="1/4"></div>
+  </div>
+  <label>A and B are</label>
+  <select id="p2_rel">
+    <option value="independent">Independent (one does not affect the other)</option>
+    <option value="exclusive">Mutually exclusive (cannot happen together)</option>
+    <option value="general">Neither &mdash; I know P(A and B)</option>
+  </select>
+  <label>P(A and B) &mdash; only for the last option</label>
+  <input type="text" id="p2_ab" placeholder="0.2">
+  <button onclick="postSolve('/api/solve/statistics/prob-combined', {pa: val('p2_a'), pb: val('p2_b'), relation: val('p2_rel'), pab: val('p2_ab')}, 'p2_out')">Solve</button>
+  <div id="p2_out"></div>
+</div>
+
+<div id="pr3" class="panel card">
+  <h2>Drawing Items from a Bag (with a Tree Diagram)</h2>
+  <p class="hint">List what is in the bag as name : number, e.g. red:5, blue:3, green:2. Two draws gives a drawn tree diagram.</p>
+  <label>Items in the bag</label>
+  <input type="text" id="p3_items" placeholder="red:5, blue:3">
+  <div class="two-col">
+    <div><label>Number of draws</label><select id="p3_draws"><option>2</option><option>1</option><option>3</option></select></div>
+    <div><label>After each draw the item is</label>
+      <select id="p3_repl"><option value="no">NOT put back (without replacement)</option><option value="yes">Put back (with replacement)</option></select></div>
+  </div>
+  <label>A particular order, e.g. red, blue (optional)</label>
+  <input type="text" id="p3_seq" placeholder="red, blue">
+  <button onclick="postSolve('/api/solve/statistics/prob-draw', {items: val('p3_items'), draws: val('p3_draws'), replacement: val('p3_repl'), sequence: val('p3_seq')}, 'p3_out')">Solve</button>
+  <div id="p3_out"></div>
+</div>
+
+<div id="pr4" class="panel card">
+  <h2>Dice and Coins</h2>
+  <label>Experiment</label>
+  <select id="p4_kind" onchange="showGroup('p4_kind')">
+    <option value="one-die">One die</option>
+    <option value="two-dice">Two dice</option>
+    <option value="coins">Tossing coins</option>
+  </select>
+  <div class="field-group active" data-for="p4_kind" data-show="one-die">
+    <label>Event</label>
+    <select id="p4_e1">
+      <option value="even">an even number</option><option value="odd">an odd number</option><option value="prime">a prime number</option>
+      <option value="greater">a number greater than ...</option><option value="less">a number less than ...</option>
+      <option value="multiple">a multiple of ...</option><option value="equal">the number ...</option>
+    </select>
+  </div>
+  <div class="field-group" data-for="p4_kind" data-show="two-dice">
+    <label>Event</label>
+    <select id="p4_e2">
+      <option value="sum-equal">the sum is ...</option><option value="sum-greater">the sum is greater than ...</option>
+      <option value="sum-less">the sum is less than ...</option><option value="product-equal">the product is ...</option>
+      <option value="doubles">a double (same number on both)</option><option value="sum-even">the sum is even</option>
+      <option value="sum-prime">the sum is prime</option>
+    </select>
+  </div>
+  <div class="field-group" data-for="p4_kind" data-show="coins">
+    <div class="two-col">
+      <div><label>Number of coins</label><input type="text" id="p4_n" placeholder="3"></div>
+      <div><label>Event</label>
+        <select id="p4_e3"><option value="exactly">exactly ... heads</option><option value="atleast">at least ... heads</option><option value="atmost">at most ... heads</option></select></div>
+    </div>
+  </div>
+  <label>The number (...) used in the event, if there is one</label>
+  <input type="text" id="p4_val" placeholder="7">
+  <button onclick="(function(){const k=val('p4_kind'); postSolve('/api/solve/statistics/prob-dice', {kind:k, event: k==='one-die'?val('p4_e1'):k==='two-dice'?val('p4_e2'):val('p4_e3'), value: val('p4_val'), n: val('p4_n')}, 'p4_out');})()">Solve</button>
+  <div id="p4_out"></div>
+</div>
+
+<div id="pc" class="panel card">
+  <h2>Permutation and Combination</h2>
+  <label>Find</label>
+  <select id="pc_kind">
+    <option value="perm">Permutation <sup>n</sup>P<sub>r</sub> (order matters)</option>
+    <option value="comb">Combination <sup>n</sup>C<sub>r</sub> (order does not matter)</option>
+    <option value="factorial">Factorial n!</option>
+    <option value="circular">Arranging n objects round a circle</option>
+  </select>
+  <div class="two-col">
+    <div><label>n</label><input type="text" id="pc_n" placeholder="10"></div>
+    <div><label>r (not needed for factorial / circle)</label><input type="text" id="pc_r" placeholder="3"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/statistics/perm-comb', {kind: val('pc_kind'), n: val('pc_n'), r: val('pc_r')}, 'pc_out')">Solve</button>
+  <div id="pc_out"></div>
+</div>
+
+<div id="arr" class="panel card">
+  <h2>Arrangement of the Letters of a Word</h2>
+  <label>Word</label>
+  <input type="text" id="ar_word" placeholder="MATHEMATICS" maxlength="20">
+  <label>Condition</label>
+  <select id="ar_cond">
+    <option value="none">No condition (all arrangements)</option>
+    <option value="together">Certain letters must be together</option>
+    <option value="starts">Starting with a given letter</option>
+    <option value="ends">Ending with a given letter</option>
+  </select>
+  <label>Letters (type <i>vowels</i> or the letters, e.g. AEI) / the given letter</label>
+  <input type="text" id="ar_letters" placeholder="vowels">
+  <button onclick="postSolve('/api/solve/statistics/arrangements', {word: val('ar_word'), condition: val('ar_cond'), letters: val('ar_letters')}, 'ar_out')">Solve</button>
+  <div id="ar_out"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+<script>['ch_kind','mn_kind','p4_kind'].forEach(function(i){ showGroup(i); });</script>
+{% endblock %}

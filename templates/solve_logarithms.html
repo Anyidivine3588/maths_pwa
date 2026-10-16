@@ -9,11 +9,12 @@
   <div class="tab" data-tab="solve" onclick="showTab('solve')">Solve an Equation</div>
   <div class="tab" data-tab="tables" onclick="showTab('tables')">Using Log Tables</div>
   <div class="tab" data-tab="antilog" onclick="showTab('antilog')">Antilog</div>
+  <div class="tab" data-tab="calc" onclick="showTab('calc')">Calculate with Log Tables</div>
 </div>
 
 <div id="eval" class="panel active card">
   <h2>Evaluate a Logarithm</h2>
-  <p class="hint">e.g. log_2(8), log(100) [base 10], ln(x) [base e]</p>
+  <p class="hint">e.g. log_2(8), log_8(4), log_(1/2)(4), log(0.001), ln(e^3), or a sum like log_2(12) + log_2(4/3). A bare "log" means base 10.</p>
   <label>Expression</label>
   <input type="text" id="le_expr" placeholder="log_2(8)">
   <button onclick="postSolve('/api/solve/logarithms/evaluate', {expr: document.getElementById('le_expr').value}, 'le_out')">Solve</button>
@@ -66,11 +67,21 @@
 
 <div id="antilog" class="panel card">
   <h2>Antilog</h2>
-  <p class="hint">Given a logarithm value, find the original number using the antilog-table method.</p>
+  <p class="hint">Given a logarithm, find the original number. You can type a decimal (2.7686), a negative (-2.4559) or bar form (type <b>bar3.5441</b> for 3&#772;.5441).</p>
   <label>Log value</label>
-  <input type="text" id="al_val" placeholder="2.7160">
+  <input type="text" id="al_val" placeholder="2.7686 or bar3.5441 or -2.4559">
   <button onclick="postSolve('/api/solve/logarithms/antilog', {value: document.getElementById('al_val').value}, 'al_out')">Solve</button>
   <div id="al_out"></div>
+</div>
+
+<div id="calc" class="panel card">
+  <h2>Calculate with Log Tables</h2>
+  <p class="hint">Multiply, divide, find powers and roots the exam way: look up each log, add / subtract / multiply / divide the logs, then take the antilog.
+     e.g. <b>587 * 0.0342</b>, <b>45.6 / 2.37</b>, <b>2.35^3</b>, <b>sqrt(587)</b>, <b>587^(1/3)</b>, <b>(2.5 * 3.4) / 1.7</b></p>
+  <label>Calculation</label>
+  <input type="text" id="lk_expr" placeholder="587 * 0.0342">
+  <button onclick="postSolve('/api/solve/logarithms/calculate', {expr: document.getElementById('lk_expr').value}, 'lk_out')">Solve</button>
+  <div id="lk_out"></div>
 </div>
 {% endblock %}
 {% block scripts %}

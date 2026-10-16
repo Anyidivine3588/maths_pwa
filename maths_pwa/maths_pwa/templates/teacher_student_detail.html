@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="{{ url_for('teacher_dashboard') }}" style="font-size:0.85rem;">&larr; Back to dashboard</a>
+<h1>{{ student["full_name"] }}</h1>
+<p style="color:var(--muted);">{{ student["class_name"] or "No class set" }} · @{{ student["username"] }}</p>
+
+<div class="grid" style="margin-bottom:20px;">
+  <div class="stat"><div class="num">{{ attempts|length }}</div><div class="label">Total problems solved</div></div>
+  <div class="stat"><div class="num">{{ topic_counts|length }}</div><div class="label">Topics explored</div></div>
+</div>
+
+<div class="card">
+  <h2>Topic breakdown</h2>
+  {% if topic_counts %}
+    {% for t, c in topic_counts.items() %}
+      <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:0.9rem;">
+          <span>{{ topic_labels.get(t, t)|title }}</span><span>{{ c }}</span>
+        </div>
+        <div style="background:var(--border); border-radius:6px; height:8px; overflow:hidden;">
+          <div style="background:var(--primary); height:8px; width:{{ (c / attempts|length * 100) if attempts|length else 0 }}%;"></div>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p style="color:var(--muted);">This student hasn't tried any solvers yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Most-used tools</h2>
+  {% if subtopic_counts %}
+  <table>
+    <tr><th>Tool</th><th>Uses</th></tr>
+    {% for name, c in subtopic_counts %}
+      <tr><td>{{ name|replace("-", " ")|title }}</td><td>{{ c }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}
+    <p style="color:var(--muted);">No data yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Full activity log</h2>
+  {% if attempts %}
+  <table>
+    <tr><th>When</th><th>Topic</th><th>Tool</th><th>Input</th></tr>
+    {% for a in attempts %}
+    <tr>
+      <td>{{ a["created_at"][:16].replace("T"," ") }}</td>
+      <td>{{ topic_labels.get(a["topic"], a["topic"]) }}</td>
+      <td>{{ a["subtopic"]|replace("-", " ")|title }}</td>
+      <td>{{ a["input_summary"] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+    <p style="color:var(--muted);">No activity yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -752,6 +752,9 @@ def api_logarithms(sub):
     elif sub == "antilog":
         res = solvers.log_antilog(data.get("value", ""))
         summary = data.get("value", "")
+    elif sub == "calculate":
+        res = solvers.log_calculate(data.get("expr", ""))
+        summary = data.get("expr", "")
     else:
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
 

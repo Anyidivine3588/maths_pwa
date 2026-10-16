@@ -3531,3 +3531,43 @@ def earth_find_point_parallel(lat, long1, distance, direction, R=None, unit="km"
         return _fail(str(e))
     except Exception as e:
         return _fail(f"Could not solve: {e}")
+
+
+
+# ---------------------------------------------------------------------------
+# Logarithms: the pure-Python engine (log_core / log_solvers / log_tables)
+# replaces the old sympy versions above.
+# ---------------------------------------------------------------------------
+def log_evaluate(expr_str, base=None):
+    import log_solvers
+    return log_solvers.evaluate(expr_str, base)
+
+
+def log_change_of_base(value, from_base, to_base=10):
+    import log_solvers
+    return log_solvers.change_of_base(value, from_base, to_base)
+
+
+def log_laws_simplify(expr_str):
+    import log_solvers
+    return log_solvers.laws(expr_str)
+
+
+def log_solve_equation(expr_str):
+    import log_solvers
+    return log_solvers.solve_equation(expr_str)
+
+
+def log_evaluate_tables(number_str):
+    import log_tables
+    return log_tables.tables(number_str)
+
+
+def log_antilog(log_value_str):
+    import log_tables
+    return log_tables.antilog(log_value_str)
+
+
+def log_calculate(expr_str):
+    import log_tables
+    return log_tables.calculate(expr_str)
