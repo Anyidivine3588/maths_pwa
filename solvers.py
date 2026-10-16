@@ -3571,3 +3571,37 @@ def log_antilog(log_value_str):
 def log_calculate(expr_str):
     import log_tables
     return log_tables.calculate(expr_str)
+
+
+
+# ---------------------------------------------------------------------------
+# Indices: pure-Python engine (ind_solvers) replaces the old sympy versions.
+# ---------------------------------------------------------------------------
+def indices_law_multiply(base, m, n):
+    import ind_solvers
+    return ind_solvers.law("multiply", base, m, n)
+
+
+def indices_law_divide(base, m, n):
+    import ind_solvers
+    return ind_solvers.law("divide", base, m, n)
+
+
+def indices_law_power(base, m, n):
+    import ind_solvers
+    return ind_solvers.law("power", base, m, n)
+
+
+def indices_evaluate(expr_str):
+    import ind_solvers
+    return ind_solvers.evaluate(expr_str)
+
+
+def indices_solve_equation(expr_str):
+    import ind_solvers
+    return ind_solvers.solve_equation(expr_str)
+
+
+def indices_solve_equal_base(expr_str):
+    import ind_solvers
+    return ind_solvers.solve_equation(expr_str)

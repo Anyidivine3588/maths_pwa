@@ -14,7 +14,7 @@
 <div id="mult" class="panel active card">
   <h2>a^m &times; a^n = a^(m+n)</h2>
   <div class="two-col">
-    <div><label>Base (a)</label><input type="text" id="im_a" placeholder="2"></div>
+    <div><label>Base (a)</label><input type="text" id="im_a" placeholder="2 or x"></div>
     <div><label>m</label><input type="text" id="im_m" placeholder="3"></div>
     <div><label>n</label><input type="text" id="im_n" placeholder="4"></div>
   </div>
@@ -46,7 +46,7 @@
 
 <div id="eval" class="panel card">
   <h2>Evaluate / Simplify an Expression</h2>
-  <p class="hint">e.g. 2^3 * 2^-5, or (x^2)^3, or x^5/x^2</p>
+  <p class="hint">e.g. 2^3 * 2^-5, 27^(2/3), (1/4)^(-1/2), (x^2)^3 / x^4, (2x^2y)^3 / (4xy^2). Works with negative, zero and fractional indices, and with letters.</p>
   <label>Expression</label>
   <input type="text" id="ie_expr" placeholder="2^3 * 2^-5">
   <button onclick="postSolve('/api/solve/indices/evaluate', {expr: document.getElementById('ie_expr').value}, 'ie_out')">Solve</button>
@@ -54,8 +54,8 @@
 </div>
 
 <div id="solve" class="panel card">
-  <h2>Solve for x (unknown in the index)</h2>
-  <p class="hint">e.g. 2^(x+1) = 16, or 5^x = 10</p>
+  <h2>Solve for x</h2>
+  <p class="hint">The unknown can be in the index: 2^(x+1) = 16, 5^x = 10, 4^x = 8^(x-1). Or in the base: x^2 = 16, x^(3/2) = 8, x^(-2) = 1/9, (x+1)^2 = 25.</p>
   <label>Equation</label>
   <input type="text" id="is_expr" placeholder="2^(x+1) = 16">
   <button onclick="postSolve('/api/solve/indices/solve', {expr: document.getElementById('is_expr').value}, 'is_out')">Solve</button>
@@ -65,7 +65,7 @@
 <div id="eqbase" class="panel card">
   <h2>Equal Base Method (no calculator or logs)</h2>
   <p class="hint">For exponential equations with several power terms multiplied or divided
-     together, e.g. 81^x x 27^(-2x) = 3^(2x+3). Expresses every term as a power of one
+     together, e.g. 81^x * 27^(-2x) = 3^(2x+3), or 9^x * 3^(x+1) = 27, or 2^(2x) - 5*2^x + 4 = 0. Expresses every term as a power of one
      common base, then equates the indices -- exactly the method exam officers expect
      when calculators aren't allowed.</p>
   <label>Equation</label>

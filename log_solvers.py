@@ -1060,10 +1060,45 @@ def _solve_var_base(lhs, rhs, v, steps):
 
 class _T:
     """coef * B**(m*x + n)   (B None => plain number)"""
-    __slots__ = ("coef", "B", "m", "n")
+    __slots__ = ("coef", "B", "m", "n", "parts", "note")
 
-    def __init__(self, coef, B=None, m=Fraction(0), n=Fraction(0)):
+    def __init__(self, coef, B=None, m=Fraction(0), n=Fraction(0), parts=None, note=None):
         self.coef, self.B, self.m, self.n = Fraction(coef), B, Fraction(m), Fraction(n)
+        self.parts, self.note = parts, note
+
+
+def _neg_T(t):
+    return _T(-t.coef, t.B, t.m, t.n, t.parts, t.note)
+
+
+def _scale_T(t, c):
+    return _T(t.coef * c, t.B, t.m, t.n, t.parts, t.note)
+
+
+def _parts(t):
+    return t.parts or [(t.B, t.m, t.n)]
+
+
+def _mul_T(a, b):
+    """product of two terms that each carry the unknown"""
+    if a.B is None:
+        return _scale_T(b, a.coef)
+    if b.B is None:
+        return _scale_T(a, b.coef)
+    if "e" in (a.B, b.B):
+        if a.B == b.B:
+            return _T(a.coef * b.coef, "e", a.m + b.m, a.n + b.n, _parts(a) + _parts(b))
+        raise LogErr("Mixing e with another base in a product is too hard for this solver.")
+    r = exact_log(b.B, a.B)
+    if r is not None:
+        return _T(a.coef * b.coef, a.B, a.m + r * b.m, a.n + r * b.n, _parts(a) + _parts(b))
+    if a.m == b.m and a.m != 0:
+        Tq1, e1 = _t_of(a.B, a.n)
+        Tq2, e2 = _t_of(b.B, b.n)
+        if e1 and e2:
+            note = f"{fmtq(a.B)}<sup>{_lin(a.m, a.n, 'x')}</sup> &times; {fmtq(b.B)}<sup>{_lin(b.m, b.n, 'x')}</sup> = ({fmtq(a.B)} &times; {fmtq(b.B)})<sup>{_lin(a.m, 0, 'x')}</sup> &times; {fmtq(Tq1 * Tq2)} = {fmtq(a.B * b.B)}<sup>{_lin(a.m, 0, 'x')}</sup> &times; {fmtq(Tq1 * Tq2)}"
+            return _T(a.coef * b.coef * Tq1 * Tq2, a.B * b.B, a.m, 0, None, note)
+    raise LogErr("I can multiply powers with the unknown when their bases are powers of the same number (like 9<sup>x</sup> &times; 3<sup>x+1</sup>) or when the powers match (like 2<sup>x</sup> &times; 3<sup>x</sup>).")
 
 
 def _exp_terms(node, v):
@@ -1071,17 +1106,19 @@ def _exp_terms(node, v):
     if k == "num":
         return [_T(node[1])]
     if k == "neg":
-        return [_T(-t.coef, t.B, t.m, t.n) for t in _exp_terms(node[1], v)]
+        return [_neg_T(t) for t in _exp_terms(node[1], v)]
     if k in ("add", "sub"):
         a = _exp_terms(node[1], v)
         b = _exp_terms(node[2], v)
         if k == "sub":
-            b = [_T(-t.coef, t.B, t.m, t.n) for t in b]
+            b = [_neg_T(t) for t in b]
         return a + b
     if k == "mul":
         va, vb = variables(node[1]), variables(node[2])
         if va and vb:
-            raise LogErr("I can solve equations like 2<sup>x</sup> = 5 or 3<sup>x+1</sup> = 27. Two powers multiplied together are not supported; try writing them as one power first.")
+            A_ = _exp_terms(node[1], v)
+            B_ = _exp_terms(node[2], v)
+            return [_mul_T(a_, b_) for a_ in A_ for b_ in B_]
         if va:
             c = ev_exact(node[2])
             ts = _exp_terms(node[1], v)
@@ -1090,35 +1127,44 @@ def _exp_terms(node, v):
             ts = _exp_terms(node[2], v)
         if c is None:
             raise LogErr("I can multiply a power only by a plain number here.")
-        return [_T(t.coef * c, t.B, t.m, t.n) for t in ts]
+        return [_scale_T(t, c) for t in ts]
     if k == "div":
         if variables(node[2]):
             ts = _exp_terms(node[2], v)
             if len(ts) != 1 or ts[0].B is None:
                 raise LogErr("I can only divide by a single power of a number here.")
+            t = ts[0]
+            rec = _T(1 / t.coef, t.B, -t.m, -t.n, [(b_, -m_, -n_) for b_, m_, n_ in _parts(t)])
+            if variables(node[1]):
+                return [_mul_T(a_, rec) for a_ in _exp_terms(node[1], v)]
             c = ev_exact(node[1])
             if c is None:
                 raise LogErr("I can only divide a plain number by a power here.")
-            t = ts[0]
-            return [_T(c / t.coef, t.B, -t.m, -t.n)]
+            return [_scale_T(rec, c)]
         d = ev_exact(node[2])
         if d is None or d == 0:
             raise LogErr("I can only divide by plain numbers here.")
-        return [_T(t.coef / d, t.B, t.m, t.n) for t in _exp_terms(node[1], v)]
+        return [_scale_T(t, 1 / d) for t in _exp_terms(node[1], v)]
     if k == "pow":
         if variables(node[2]):
             if variables(node[1]):
                 raise LogErr("An unknown in both the base and the power is too hard for this solver.")
-            if node[1] == ("const", "e"):
+            fac = Fraction(1)
+            bn = node[1]
+            if bn[0] == "sqrt":
+                bn, fac = bn[1], Fraction(1, 2)
+            elif bn[0] == "pow" and not variables(bn[2]) and ev_exact(bn[2]) is not None:
+                bn, fac = bn[1], ev_exact(bn[2])
+            if bn == ("const", "e"):
                 B = "e"
             else:
-                B = ev_exact(node[1])
+                B = ev_exact(bn)
                 if B is None or B <= 0 or B == 1:
                     raise LogErr("The base of the power must be a positive number other than 1.")
             P = to_poly(node[2], v)
             if P.deg() > 1:
                 raise LogErr("The power must be a simple expression like x, 2x or x + 1.")
-            return [_T(1, B, P.c[1] if P.deg() == 1 else 0, P.c[0] if P.c else 0)]
+            return [_T(1, B, fac * (P.c[1] if P.deg() == 1 else 0), fac * (P.c[0] if P.c else 0))]
         q = ev_exact(node)
         if q is None:
             raise LogErr("I could not work out the plain-number power in your equation.")
@@ -1140,7 +1186,7 @@ def _lg4(q):
 def _solve_exponential(lhs, rhs, v, steps):
     tl = _exp_terms(lhs, v)
     tr = _exp_terms(rhs, v)
-    terms = tl + [_T(-t.coef, t.B, t.m, t.n) for t in tr]
+    terms = tl + [_neg_T(t) for t in tr]
     const0 = Fraction(0)
     var_terms = []
     for t in terms:
@@ -1156,7 +1202,7 @@ def _solve_exponential(lhs, rhs, v, steps):
             var_terms.append(t)
     if not var_terms:
         raise LogErr("The unknown cancelled out of the powers.")
-    Bs = [t.B for t in var_terms]
+    Bs = [p_[0] for t in var_terms for p_ in _parts(t)]
     steps.append("<b>An index (exponential) equation:</b> the unknown is in the power. The plan: write all the powers with the <b>same base</b>, or use logs.")
     # ---- common base
     uniqB = []
@@ -1183,8 +1229,11 @@ def _solve_exponential(lhs, rhs, v, steps):
     rows = []
     M, kap = [], []
     for t in var_terms:
-        r = rmap[t.B]
-        Mj, Nj = r * t.m, r * t.n
+        if t.note and not t.parts:
+            rows.append(t.note)
+        prs = _parts(t)
+        Mj = sum((rmap[p_[0]] * p_[1] for p_ in prs), Fraction(0))
+        Nj = sum((rmap[p_[0]] * p_[2] for p_ in prs), Fraction(0))
         if u == "e":
             kq, ex = Fraction(t.coef), True
         else:
@@ -1194,8 +1243,13 @@ def _solve_exponential(lhs, rhs, v, steps):
             return _fallback_two_bases(var_terms, const0, v, steps)
         M.append(Mj)
         kap.append(kq)
-        if u != "e" and t.B != u:
-            rows.append(f"{fmtq(t.B)}<sup>{_lin(t.m, t.n, v)}</sup> = ({us}<sup>{int(r)}</sup>)<sup>{_lin(t.m, t.n, v)}</sup> = {us}<sup>{_lin(Mj, Nj, v)}</sup>")
+        if u != "e":
+            for pb, pm, pn in prs:
+                if pb != u:
+                    rr = rmap[pb]
+                    rows.append(f"{fmtq(pb)}<sup>{_lin(pm, pn, v)}</sup> = ({us}<sup>{fmtq(rr)}</sup>)<sup>{_lin(pm, pn, v)}</sup> = {us}<sup>{_lin(rr * pm, rr * pn, v)}</sup>")
+            if len(prs) > 1:
+                rows.append(f"Powers of the same base multiply by <b>adding</b> the indices: " + " &times; ".join(f"{us}<sup>{_lin(rmap[pb] * pm, rmap[pb] * pn, v)}</sup>" for pb, pm, pn in prs) + f" = {us}<sup>{_lin(Mj, Nj, v)}</sup>")
     if rows:
         steps.append(f"<b>Write every power with the same base ({us}):</b><br>" + "<br>".join(rows))
     # generator
@@ -1235,6 +1289,8 @@ def _solve_exponential(lhs, rhs, v, steps):
         steps.append(f"<b>Multiply through by y{'<sup>' + str(-ymin) + '</sup>' if -ymin > 1 else ''}</b> to remove the negative powers.")
     if deg == 0:
         return _fail("The equation reduces to a plain number statement, so it has no unknown left.")
+    if E.is_zero():
+        return _ok(steps + ["Both sides are always equal, so the equation is true for <b>every</b> value of " + v + "."], "True for every value of " + v + " (an identity)")
     yroots = solve_poly_steps(E, "y", steps, "the equation in y", show_std=(deg > 1 or ymin < 0))
     if not yroots:
         return _ok(steps + ["There is no real value of y, so <b>no solution</b>."], "No solution")
@@ -1250,6 +1306,11 @@ def _solve_exponential(lhs, rhs, v, steps):
             rr = exact_log(ex, u)
         else:
             rr = None
+        if rr is None and u != "e" and fl > 0:
+            lx0 = math.log(fl) / (math.log(float(u)) * float(g))
+            fr0 = Fraction(lx0).limit_denominator(12)
+            if abs(float(fr0) - lx0) < 1e-9 * max(1, abs(lx0)):
+                rr = fr0 * g
         if rr is not None:
             xq = rr / g
             steps.append(f"y = {txt}: {ytxt} = {txt} = {us}<sup>{fmtq(rr)}</sup>. The bases match, so the powers match: {(fmtq(g) if g != 1 else '')}{v} = {fmtq(rr)}"
