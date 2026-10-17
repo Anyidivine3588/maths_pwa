@@ -118,7 +118,8 @@ def render_rat_rad(coef, rad):
         for p, e in rad.items():
             if Fraction(e).denominator == d:
                 n *= p ** int(Fraction(e) * d)
-        rtxt += ("&radic;" if d == 2 else f"<sup>{d}</sup>&radic;") + (str(n) if n < 10 else f"({n})")
+        sym = "&radic;" if d == 2 else ("&#8731;" if d == 3 else ("&#8732;" if d == 4 else f"<sup>{d}</sup>&radic;"))
+        rtxt += sym + (str(n) if n < 1000 else f"({n})")
     if not rad:
         return qtext(coef)
     c = Fraction(coef)

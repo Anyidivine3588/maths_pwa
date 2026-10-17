@@ -3605,3 +3605,27 @@ def indices_solve_equation(expr_str):
 def indices_solve_equal_base(expr_str):
     import ind_solvers
     return ind_solvers.solve_equation(expr_str)
+
+
+
+# ---------------------------------------------------------------------------
+# Surds: pure-Python engine (surd_solvers) replaces the old sympy versions.
+# ---------------------------------------------------------------------------
+def surd_simplify(expr_str):
+    import surd_solvers
+    return surd_solvers.simplify(expr_str)
+
+
+def surd_arithmetic(expr_str):
+    import surd_solvers
+    return surd_solvers.arithmetic(expr_str)
+
+
+def surd_rationalize(expr_str):
+    import surd_solvers
+    return surd_solvers.rationalise_expr(expr_str)
+
+
+def surd_solve_equation(expr_str):
+    import surd_solvers
+    return surd_solvers.solve_equation(expr_str)

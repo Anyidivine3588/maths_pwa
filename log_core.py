@@ -328,7 +328,11 @@ class Parser:
             return ("num", self.number())
         if c is not None and c.isalpha():
             return self.atom()
-        raise LogErr("The log needs something to take the log of, like log(100).")
+        if re.search(r"sqrt\s*$", self.s[:self.i]):
+            raise LogErr("The square root sign needs a number after it, like &radic;50 or &radic;(x + 5).")
+        if re.search(r"\bln?\s*$|log\w*\s*$", self.s[:self.i]):
+            raise LogErr("The log needs something to take the log of, like log(100).")
+        raise LogErr("Something is missing here: I expected a number or a bracket after what you typed (for example after +, &minus;, &times; or &divide;).")
 
     def base_spec(self):
         c = self.s[self.i] if self.i < len(self.s) else None

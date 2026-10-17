@@ -734,7 +734,8 @@ def solve_poly_steps(E, v, steps, label="the equation", show_std=True):
         return []
     if d == 1:
         a, b = E.c[1], E.c[0]
-        steps.append(f"Solve the simple equation: {fmtq(a) if a != 1 else ''}{v} = {fmtq(-b)}" + (f", so {v} = {fmtq(-b)} &divide; {fmtq(a)} = {fmtq(-b / a)}" if a != 1 else ""))
+        coef = "" if a == 1 else (MINUS if a == -1 else fmtq(a))
+        steps.append(f"Solve the simple equation: {coef}{v} = {fmtq(-b)}" + (f", so {v} = {fmtq(-b)} &divide; {('(' + fmtq(a) + ')') if a < 0 else fmtq(a)} = {fmtq(-b / a)}" if a not in (1,) else ""))
         return real_roots(E)
     roots = real_roots(E)
     if d == 2:
@@ -752,7 +753,7 @@ def solve_poly_steps(E, v, steps, label="the equation", show_std=True):
             for r in roots:
                 steps.append(_fmt_root(r, v))
     else:
-        steps.append("This needs a factor-theorem search. Trying values that divide the last number, the roots found are: " + ", ".join(_fmt_root(r, v) for r in roots))
+        steps.append("<b>Cubic / higher equation:</b> try small values that divide the last number (factor theorem) until one makes the expression zero, divide that factor out, then solve what is left. The roots are: " + ", ".join(_fmt_root(r, v) for r in roots))
     return roots
 
 

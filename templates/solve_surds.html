@@ -11,7 +11,7 @@
 
 <div id="simp" class="panel active card">
   <h2>Simplify a Surd</h2>
-  <p class="hint">e.g. √50 -&gt; 5√2</p>
+  <p class="hint">e.g. √50 &rarr; 5√2, √72, √(18/25), 3√48, ∛54, or √12 &times; √6. Shows the prime factors and the perfect square that comes out. No √ key? Type sqrt(50) instead.</p>
   <label>Expression</label>
   <input type="text" id="ss_expr" placeholder="√50">
   <button onclick="postSolve('/api/solve/surds/simplify', {expr: document.getElementById('ss_expr').value}, 'ss_out')">Solve</button>
@@ -20,8 +20,8 @@
 
 <div id="arith" class="panel card">
   <h2>Surd Arithmetic</h2>
-  <p class="hint">e.g. 2√3 + 5√3, or √12 + √27, or √2 × √8, or a binomial product like
-     (√3+2)(√3-1) -- shown split into smaller products, then combined.</p>
+  <p class="hint">e.g. √12 + √27 &minus; √3, 2√3 × 3√6, (2+√3)(4−√3), (√5+√2)², (3+√2)(3−√2), √8 ÷ √2, √(7+4√3).
+     Every surd is simplified first, brackets are expanded term by term, then like surds are collected.</p>
   <label>Expression</label>
   <input type="text" id="sa_expr" placeholder="√12 + √27">
   <button onclick="postSolve('/api/solve/surds/arithmetic', {expr: document.getElementById('sa_expr').value}, 'sa_out')">Solve</button>
@@ -30,8 +30,7 @@
 
 <div id="rat" class="panel card">
   <h2>Rationalise the Denominator</h2>
-  <p class="hint">Works for both a single surd (e.g. 1/√2) and a binomial surd
-     (e.g. 1/(2+√3)) denominator.</p>
+  <p class="hint">Single surd (1/√2, 12/√3, 5/(2√5)) or a binomial denominator using the conjugate (1/(2+√3), (√5+√2)/(√5−√2), 3/(√7−2)). Gives the answer in the form p + q√r and the value when √2 = 1.414, √3 = 1.732 etc. are given.</p>
   <label>Expression</label>
   <input type="text" id="sr_expr" placeholder="1/(2+√3)">
   <button onclick="postSolve('/api/solve/surds/rationalize', {expr: document.getElementById('sr_expr').value}, 'sr_out')">Solve</button>
@@ -40,10 +39,9 @@
 
 <div id="eqn" class="panel card">
   <h2>Solve an Equation with a Surd</h2>
-  <p class="hint">e.g. √(x+5) - √(x-4) = 1. Isolates a root, squares both sides (repeating if
-     needed), then checks every candidate against the original equation -- squaring can
-     introduce extra, invalid roots, so this always verifies before giving the final answer.
-     You can type "root(...)" if you can't find the &radic; symbol.</p>
+  <p class="hint">e.g. √(x+5) − √(x−4) = 1, √(2x+1) = x − 1, x − 5√x + 6 = 0, √x + √(x+7) = 7. Isolates a root, squares both sides (repeating if
+     needed), then checks every candidate in the original equation &mdash; squaring can
+     introduce false answers, so rejected ones are shown. Type sqrt(...) if you can't find the &radic; symbol.</p>
   <label>Equation</label>
   <input type="text" id="se_expr" placeholder="√(x+5) - √(x-4) = 1">
   <button onclick="postSolve('/api/solve/surds/equation', {expr: document.getElementById('se_expr').value}, 'se_out')">Solve</button>
