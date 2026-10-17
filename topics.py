@@ -11,6 +11,7 @@ form values as a dict of strings and returns the usual
 TOPIC_INFO = [
     # --- Number & Algebra
     ("algebra", "Algebra", "Linear, quadratic and simultaneous equations, factorisation and completing the square.", "Number & Algebra"),
+    ("algebra2", "Algebra Tools", "Polynomial long division, remainder and factor theorems, factorising, change of subject, roots of quadratics and means.", "Number & Algebra"),
     ("fractions", "Fractions", "LCM, HCF, proper and improper fractions, algebraic fractions.", "Number & Algebra"),
     ("indices", "Indices", "Laws of indices, evaluating and solving index equations.", "Number & Algebra"),
     ("logarithms", "Logarithms", "Laws of logarithms, equations, log tables and antilog.", "Number & Algebra"),
@@ -61,7 +62,7 @@ def _load():
     import importlib
     import logging
     for mod in ("t_variation", "t_bases", "t_percent", "t_inequalities", "t_matrices",
-                "t_calculus", "t_circles", "t_loci", "t_binops", "t_angles", "t_conics", "t_transform", "t_quadgraph", "t_vectors", "t_numsense", "t_commerce"):
+                "t_calculus", "t_circles", "t_loci", "t_binops", "t_angles", "t_conics", "t_transform", "t_quadgraph", "t_vectors", "t_numsense", "t_commerce", "t_algebra2", "t_coord", "t_trig2"):
         try:
             importlib.import_module(mod)
         except ModuleNotFoundError as e:  # module not built yet / missing

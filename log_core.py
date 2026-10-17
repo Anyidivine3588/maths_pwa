@@ -183,8 +183,10 @@ def primitive_root(q):
 MAXLEN = 140
 
 
-def normalise(s):
+def normalise(s, plain=False):
     s = str(s or "")
+    if plain:
+        s = s.replace("π", " pi ")
     for ch in ("‒", "–", "—", "―", "−", "‐"):
         s = s.replace(ch, "-")
     s = s.replace("×", "*").replace("÷", "/").replace("·", "*").replace("√", "sqrt")
@@ -195,23 +197,25 @@ def normalise(s):
     for k, v in sub.items():
         s = s.replace(k, "_" + v if False else v)
     s = s.replace("[", "(").replace("]", ")").replace("{", "(").replace("}", ")")
-    return s.strip().lower()
+    return s.strip() if plain else s.strip().lower()
 
 
 _NUM = re.compile(r"\d+(?:\.\d+)?|\.\d+")
 
 
 class Parser:
-    def __init__(self, text):
-        s = normalise(text)
+    def __init__(self, text, plain=False):
+        self.plain = plain
+        s = normalise(text, plain)
         if not s:
             raise LogErr("Please type something first.")
         if len(s) > MAXLEN:
             raise LogErr("That is too long. Please use a shorter expression.")
         if s.count("(") != s.count(")"):
             raise LogErr("The brackets do not match: check that every ( has a ).")
-        if re.search(r"[^0-9a-z+\-*/^().,_\s=]", s):
-            bad = re.search(r"[^0-9a-z+\-*/^().,_\s=]", s).group()
+        _okc = r"[^0-9a-zA-Z+\-*/^().,_\s=]" if plain else r"[^0-9a-z+\-*/^().,_\s=]"
+        if re.search(_okc, s):
+            bad = re.search(_okc, s).group()
             raise LogErr(f"I could not understand the symbol &lsquo;{esc(bad)}&rsquo;.")
         self.s = s
         self.i = 0
@@ -355,8 +359,17 @@ class Parser:
         if c.isdigit() or c == ".":
             return ("num", self.number())
         if c.isalpha():
-            m = re.match(r"[a-z]+", self.s[self.i:])
+            m = re.match(r"[A-Za-z]+" if self.plain else r"[a-z]+", self.s[self.i:])
             word = m.group()
+            if self.plain:
+                if word.startswith("sqrt"):
+                    self.i += 4
+                    return ("sqrt", self.simple_operand())
+                if word == "pi":
+                    self.i += 2
+                    return ("const", "pi")
+                self.i += 1
+                return ("var", c)
             if word.startswith("log") or word.startswith("lg"):
                 k = 3 if word.startswith("log") else 2
                 self.i += k
@@ -381,8 +394,9 @@ class Parser:
         raise LogErr(f"I could not understand &lsquo;{esc(c)}&rsquo; here.")
 
 
-def parse(text):
-    return Parser(text).parse()
+def parse(text, plain=False):
+    """plain=True: algebra mode (letters keep their case, e is an ordinary letter, pi/π is a constant, no log or ln)"""
+    return Parser(text, plain).parse()
 
 
 # ------------------------------------------------------------- AST helpers ----
