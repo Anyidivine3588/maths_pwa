@@ -914,6 +914,61 @@ def dist(d):
     return _out(steps, f"<b>Distance = {rat}{'' if ex else ' ≈ ' + decim(v, 3)}</b>", scene(bx, items))
 
 
+# ======================================================================= table & graph of a straight line
+@wrap
+def line_table(d):
+    from frac_numeric import table
+    A, B, C = parse_line(d.get("eq"), "Equation")
+    if B == 0:
+        raise UErr("This is a vertical line (x = a number), so y does not depend on x and a table of values is not possible. A table needs y = mx + c.")
+    m, c = -A / B, -C / B
+    lo = int(Fraction(num(d.get("x0"), "x from")))
+    hi = int(Fraction(num(d.get("x1"), "x to")))
+    if lo >= hi:
+        raise UErr("'x from' must be smaller than 'x to'.")
+    if hi - lo > 14:
+        raise UErr("Please use at most 15 values of x (for example &minus;4 to 6).")
+    f1, f2 = line_forms(A, B, C)
+    steps = [f"<b>Table of values</b> for the straight line {HL(f1)}. Gradient m = {HL(q_(m))} (how much y goes up when x goes up by 1) and y-intercept c = {HL(q_(c))} (where the line crosses the y-axis).",
+             "<b>The table has one column for each term</b> of the equation (the x term and the number), then a last column <b>y</b> that adds them up."]
+    parts = [(m, 1)] + ([(c, 0)] if c != 0 else [])
+    parts = [(co, pw) for co, pw in parts if co != 0] or [(Fraction(0), 0)]
+
+    def lab(co, pw, first):
+        mag = abs(co)
+        if pw and mag.denominator != 1:
+            body = ("" if mag.numerator == 1 else str(mag.numerator)) + f"x/{mag.denominator}"
+        else:
+            body = (("" if (mag == 1 and pw) else q_(mag)) + ("x" if pw else ""))
+        return (MINUS + body) if co < 0 else (body if first else "+ " + body)
+    head = ["x"] + [lab(co, pw, i == 0) for i, (co, pw) in enumerate(parts)] + ["y"]
+    rows, pts = [], []
+    for x in range(lo, hi + 1):
+        vals = [co * (x ** pw) for co, pw in parts]
+        y = sum(vals)
+        rows.append([str(x).replace("-", MINUS)] + [q_(v) for v in vals] + [f"<b>{q_(y)}</b>"])
+        pts.append((Fraction(x), y))
+    x0 = lo
+    v0 = [co * (x0 ** pw) for co, pw in parts]
+    ex = " ; ".join((f"{lab(co, pw, True)} = {q_(co)} &times; ({str(x0).replace('-', MINUS)}) = {q_(v)}" if pw else f"{q_(co)} = {q_(v)}") for (co, pw), v in zip(parts, v0))
+    steps.append(f"<b>Worked example, x = {str(x0).replace('-', MINUS)}:</b> {ex}. Add them: y = {' + '.join('(' + q_(v) + ')' if v < 0 else q_(v) for v in v0)} = <b>{q_(sum(v0))}</b>")
+    steps.append(table(rows, head))
+    steps.append("<b>Plot:</b> each pair (x, y) is a point. Because the equation is <b>linear</b>, all the points lie on <b>one straight line</b>: join them with a ruler and extend the line a little beyond the first and last points.")
+    xi = -c / m if m != 0 else None
+    if xi is not None:
+        steps.append(f"<b>Where the line crosses the axes:</b> y-intercept (0, {q_(c)}); x-intercept: put y = 0, so x = &minus;c/m = {q_(xi)}, the point ({q_(xi)}, 0).")
+    items = [("line", A, B, C, BLUE, "")] + [("pt", p, "", RED) for p in pts]
+    items.append(("pt", (Fraction(0), c), "y-int (0, " + q_(c) + ")", GREEN))
+    if xi is not None:
+        items.append(("pt", (xi, Fraction(0)), "x-int (" + q_(xi) + ", 0)", GREEN))
+    # gradient triangle: run 1, rise m
+    tri = [(Fraction(0), c), (Fraction(1), c), (Fraction(1), c + m)]
+    items += [("seg", tri[0], tri[1], ORANGE, "--"), ("seg", tri[1], tri[2], ORANGE, "--")]
+    bx = box_from([(lo, min(float(p[1]) for p in pts)), (hi, max(float(p[1]) for p in pts)), (0, 0)])
+    steps.append(f"<b>The dashed orange triangle shows the gradient:</b> move 1 across (run) and {q_(m)} {'up' if m > 0 else ('down' if m < 0 else '(flat)')} (rise).")
+    return _out(steps, f"<b>{f1}</b><br>Gradient {q_(m)}, y-intercept {q_(c)}", scene(bx, items))
+
+
 # ======================================================================= spec
 SPEC = {
     "title": "Coordinate Geometry",
@@ -924,6 +979,9 @@ SPEC = {
                     field("p1", "Point 1", "(1, 2)", show_if={"mode": ["two", "pg"]}), field("p2", "Point 2", "(4, 8)", show_if={"mode": "two"}),
                     field("m", "Gradient (or 'vertical')", "-2/3", show_if={"mode": "pg"}),
                     field("a", "x-intercept", "4", show_if={"mode": "ic"}), field("b", "y-intercept", "-3", show_if={"mode": "ic"})], "button": "Find equation"},
+        {"id": "lt", "label": "Table & graph of a line", "title": "Table of values and graph of a straight line", "endpoint": "line_table",
+         "hint": "Type the line like <b>y = 2x + 3</b>, <b>y = -x/2 + 1</b> or <b>3x + 2y = 6</b>. The table has a column for each term, then y.",
+         "fields": [field("eq", "Equation of the line", "y = 2x + 3", wide=True, half=False), field("x0", "x from", "-3"), field("x1", "x to", "3")], "button": "Make table and graph"},
         {"id": "pp", "label": "Parallel, perpendicular & meeting", "title": "Parallel and perpendicular lines, bisectors, intersections and angles", "endpoint": "parperp",
          "fields": [select("mode", "What do you want", [("par", "Line parallel to a given line, through a point"), ("perp", "Line perpendicular to a given line, through a point"), ("bis", "Perpendicular bisector of two points"), ("meet", "Where two lines meet"), ("angle", "Angle between two lines")], wide=True),
                     field("l1", "Given line", "3x - 2y = 6", wide=True, half=False, show_if={"mode": ["par", "perp", "meet", "angle"]}),
@@ -957,5 +1015,5 @@ SPEC = {
     ],
 }
 
-topics.register("coordgeo", SPEC, {"line_eq": line_eq, "parperp": parperp, "section": section, "area": area, "circle": circle,
+topics.register("coordgeo", SPEC, {"line_table": line_table, "line_eq": line_eq, "parperp": parperp, "section": section, "area": area, "circle": circle,
                                    "circle3": circle3, "circ_line": circ_line, "dist": dist})

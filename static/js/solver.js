@@ -49,6 +49,8 @@ function renderResult(targetId, data) {
     html += '<div class="result-box"><table><tr><th>x</th><th>y</th></tr>';
     data.result.forEach(r => { html += `<tr><td>${r.x}</td><td>${r.y}</td></tr>`; });
     html += '</table></div>';
+  } else if (data.result && data.result.table) {
+    html += `<div class="result-box" style="overflow-x:auto;">${cleanHtml(data.result.table)}</div>`;
   } else if (data.result && data.result.image) {
     html += `<img class="plot-img" src="data:image/png;base64,${data.result.image}">`;
     if (data.result.intersection) {

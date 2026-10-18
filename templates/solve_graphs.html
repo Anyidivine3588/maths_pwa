@@ -3,68 +3,131 @@
 <h1>Graphs</h1>
 
 <div class="tabs">
-  <div class="tab active" data-tab="table" onclick="showTab('table')">Table of Values</div>
-  <div class="tab" data-tab="plot" onclick="showTab('plot')">Plot Function(s)</div>
+  <div class="tab active" data-tab="table" onclick="showTab('table'); syncPlot();">Table of Values</div>
+  <div class="tab" data-tab="plot" onclick="showTab('plot'); syncPlot();">Plot Function(s)</div>
 </div>
 
 <div id="table" class="panel active card">
   <h2>Table of Values</h2>
+  <p class="hint">Type the function. It can have <b>x</b> powers <i>and</i> trigonometry: <b>x^2 - 2x - 3</b>, <b>sin x</b>, <b>sin^2 x</b>, <b>3sin x - 4cos^3 x</b>, <b>2sin(3x + 30)</b>, <b>tan x</b>, <b>1/x</b>, <b>2^x</b>.
+     You may also write it as "y = &hellip;". The table shows one column for each term, so you can see how y is built up. The <b>Plot</b> tab uses this same function, unless you choose a different one there.</p>
   <label>f(x) =</label>
-  <input type="text" id="t_expr" placeholder="x^2 - 2x - 3">
+  <input type="text" id="t_expr" placeholder="3sin x - 4cos^3 x" oninput="tableExprChanged()">
+  <label>Angles (for sin, cos, tan) are in</label>
+  <select id="t_unit" onchange="syncPlot()">
+    <option value="deg">degrees (usual for WAEC / NECO)</option>
+    <option value="rad">radians</option>
+  </select>
   <div class="two-col">
-    <div><label>x min</label><input type="text" id="t_min" value="-3"></div>
-    <div><label>x max</label><input type="text" id="t_max" value="3"></div>
+    <div><label>x min</label><input type="text" id="t_min" value="-3" oninput="G.tTouched=true; syncPlot()"></div>
+    <div><label>x max</label><input type="text" id="t_max" value="3" oninput="G.tTouched=true; syncPlot()"></div>
   </div>
-  <label>Step</label>
-  <input type="text" id="t_step" value="1">
-  <button onclick="postSolve('/api/solve/graphs/table', {expr: document.getElementById('t_expr').value, x_min: document.getElementById('t_min').value, x_max: document.getElementById('t_max').value, step: document.getElementById('t_step').value}, 't_out')">Generate</button>
+  <div class="two-col">
+    <div><label>Step</label><input type="text" id="t_step" value="1" oninput="G.tTouched=true; syncPlot()"></div>
+    <div><label>Decimal places</label><input type="text" id="t_dp" value="2"></div>
+  </div>
+  <button onclick="postSolve('/api/solve/graphs/table', {expr: val('t_expr'), unit: val('t_unit'), x_min: val('t_min'), x_max: val('t_max'), step: val('t_step'), dp: val('t_dp')}, 't_out')">Generate table</button>
   <div id="t_out"></div>
+  <p class="hint" style="margin-top:14px;">Next: open the <b>Plot Function(s)</b> tab to draw this function.</p>
 </div>
 
 <div id="plot" class="panel card">
   <h2>Plot Function(s)</h2>
-  <p class="hint">You can type the equation as "y = 2x + 3", "f(x) = 2x + 3", or just "2x + 3" --
-     all work the same way. To plot a pair of simultaneous linear equations and see where the
-     lines cross, put the first line in f(x) and the second in g(x); the crossing point is
-     marked and given below the graph.</p>
+  <p class="hint">By default the graph uses <b>the same function as your table</b>, and can mark the table's points on the curve. If you need a different function, untick the box and type it.
+     To see where two graphs cross, put a second function in g(x): the crossing points are marked and written below the graph.</p>
+  <label style="display:flex; gap:8px; align-items:center; font-weight:600;">
+    <input type="checkbox" id="pl_same" checked onchange="G.pTouched=false; syncPlot()" style="width:auto;">
+    Use the same function as the table
+  </label>
   <label>f(x) =</label>
-  <input type="text" id="pl_expr" placeholder="x^2 - 2x - 3">
-  <label>g(x) = (optional -- e.g. for a second simultaneous line, to see the intersection)</label>
-  <input type="text" id="pl_expr2" placeholder="x + 1">
+  <input type="text" id="pl_expr" placeholder="x^2 - 2x - 3" oninput="plotExprChanged()">
+  <label style="display:flex; gap:8px; align-items:center;" id="pl_mark_wrap">
+    <input type="checkbox" id="pl_mark" checked style="width:auto;"> Mark the table's points on the curve
+  </label>
+  <label>g(x) = (optional &mdash; a second function, to find where the two graphs cross)</label>
+  <input type="text" id="pl_expr2" placeholder="x + 1  or  0.5  or  cos x">
+  <label>Angles (for sin, cos, tan) are in</label>
+  <select id="pl_unit">
+    <option value="deg">degrees</option>
+    <option value="rad">radians</option>
+  </select>
 
-  <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">
-    x-axis range and scale
-  </p>
+  <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">x-axis range and scale</p>
   <div class="two-col">
-    <div><label>x min</label><input type="text" id="pl_min" value="-10"></div>
-    <div><label>x max</label><input type="text" id="pl_max" value="10"></div>
+    <div><label>x min</label><input type="text" id="pl_min" value="-10" oninput="G.pTouched=true"></div>
+    <div><label>x max</label><input type="text" id="pl_max" value="10" oninput="G.pTouched=true"></div>
   </div>
-  <label>x scale (units per gridline — e.g. "2cm to 5 units" &rarr; enter 5)</label>
-  <input type="text" id="pl_xscale" placeholder="leave blank for automatic">
+  <label>x scale (units per gridline &mdash; e.g. "2cm to 5 units" &rarr; enter 5)</label>
+  <input type="text" id="pl_xscale" placeholder="leave blank for automatic" oninput="G.pTouched=true">
 
-  <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">
-    y-axis range and scale (optional — leave blank to fit automatically)
-  </p>
+  <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">y-axis range and scale (optional &mdash; leave blank to fit automatically)</p>
   <div class="two-col">
     <div><label>y min</label><input type="text" id="pl_ymin" placeholder="e.g. -10"></div>
     <div><label>y max</label><input type="text" id="pl_ymax" placeholder="e.g. 10"></div>
   </div>
-  <label>y scale (units per gridline — e.g. "2cm to 10 units" &rarr; enter 10)</label>
+  <label>y scale (units per gridline &mdash; e.g. "2cm to 10 units" &rarr; enter 10)</label>
   <input type="text" id="pl_yscale" placeholder="leave blank for automatic">
 
-  <button onclick="postSolve('/api/solve/graphs/plot', {
-      expr: document.getElementById('pl_expr').value,
-      expr2: document.getElementById('pl_expr2').value,
-      x_min: document.getElementById('pl_min').value,
-      x_max: document.getElementById('pl_max').value,
-      x_scale: document.getElementById('pl_xscale').value,
-      y_min: document.getElementById('pl_ymin').value,
-      y_max: document.getElementById('pl_ymax').value,
-      y_scale: document.getElementById('pl_yscale').value
-    }, 'pl_out')">Plot</button>
+  <button onclick="doPlot()">Plot</button>
   <div id="pl_out"></div>
 </div>
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/solver.js') }}"></script>
+<script>
+const G = {tTouched: false, pTouched: false};
+const TRIG = /sin|cos|tan|sec|cosec|csc|cot/i;
+
+function setRangeFor(expr, ids, touched) {
+  // sensible starting range: 0 to 360 (step 30) for trig, -3 to 3 otherwise; never overwrite what the student typed
+  if (touched) return;
+  const trig = TRIG.test(expr || '');
+  ids.min.value = trig ? '0' : ids.dmin;
+  ids.max.value = trig ? '360' : ids.dmax;
+  if (ids.step) ids.step.value = trig ? '30' : '1';
+  if (ids.xscale) ids.xscale.value = '';
+}
+
+function tableExprChanged() {
+  setRangeFor(val('t_expr'), {min: t_min, max: t_max, step: t_step, dmin: '-3', dmax: '3'}, G.tTouched);
+  syncPlot();
+}
+
+function plotExprChanged() {
+  if (!document.getElementById('pl_same').checked) {
+    setRangeFor(val('pl_expr'), {min: pl_min, max: pl_max, xscale: pl_xscale, dmin: '-10', dmax: '10'}, G.pTouched);
+    if (TRIG.test(val('pl_expr'))) pl_xscale.value = (val('pl_min') === '0' && val('pl_max') === '360') ? '30' : pl_xscale.value;
+  }
+}
+
+function syncPlot() {
+  const same = document.getElementById('pl_same').checked;
+  pl_expr.disabled = same;
+  pl_unit.disabled = same;
+  pl_mark_wrap.style.display = same ? 'flex' : 'none';
+  if (same) {
+    pl_expr.value = val('t_expr');
+    pl_unit.value = val('t_unit');
+    if (!G.pTouched) {
+      pl_min.value = val('t_min');
+      pl_max.value = val('t_max');
+      pl_xscale.value = TRIG.test(val('t_expr')) ? val('t_step') : '';
+    }
+  }
+}
+
+function doPlot() {
+  const same = document.getElementById('pl_same').checked;
+  postSolve('/api/solve/graphs/plot', {
+    expr: val('pl_expr'),
+    expr2: val('pl_expr2'),
+    unit: val('pl_unit'),
+    x_min: val('pl_min'), x_max: val('pl_max'), x_scale: val('pl_xscale'),
+    y_min: val('pl_ymin'), y_max: val('pl_ymax'), y_scale: val('pl_yscale'),
+    mark: (same && pl_mark.checked) ? '1' : '',
+    mark_step: val('t_step'),
+  }, 'pl_out');
+}
+syncPlot();
+</script>
 {% endblock %}

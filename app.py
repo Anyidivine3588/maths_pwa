@@ -563,19 +563,13 @@ def api_graphs(sub):
     data = (request.get_json(force=True, silent=True) or {})
     sid = session["student_id"]
 
+    import graph_solvers
     if sub == "table":
-        res = solvers.table_of_values(
-            data.get("expr", ""), data.get("x_min", -5), data.get("x_max", 5), data.get("step", 1)
-        )
-        summary = data.get("expr", "")
+        res = graph_solvers.table(data)
+        summary = str(data.get("expr", ""))[:200]
     elif sub == "plot":
-        res = solvers.plot_functions_png(
-            data.get("expr", ""), data.get("expr2") or None,
-            data.get("x_min", -10), data.get("x_max", 10),
-            data.get("y_min") or None, data.get("y_max") or None,
-            data.get("x_scale") or None, data.get("y_scale") or None,
-        )
-        summary = f'{data.get("expr","")} / {data.get("expr2","")}'
+        res = graph_solvers.plot(data)
+        summary = f'{str(data.get("expr",""))[:100]} / {str(data.get("expr2",""))[:100]}'
     else:
         return jsonify({"ok": False, "error": "Unknown solver."}), 400
 

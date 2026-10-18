@@ -175,15 +175,28 @@ def table_graph(d):
     if hi - lo > 14:
         raise UErr("Please use at most 15 values of x (for example &minus;4 to 6).")
     steps = [f"<b>Table of values</b> for y = {poly_txt(a, b, c)}. For each x, put it into the equation to find y. Do it carefully: square first, then multiply.",
-             ]
+             "<b>The table has one column for each term</b> of the equation (the x&sup2; term, the x term and the number), then a last column <b>y</b> that adds them up. This is the way the working is set out in WAEC and NECO."]
+
+    def term_label(coef, power, first):
+        mag = abs(coef)
+        body = ("" if (mag == 1 and power) else ns(mag)) + ("x&sup2;" if power == 2 else ("x" if power == 1 else ""))
+        return (MINUS + body) if coef < 0 else (body if first else "+ " + body)
+    parts = [(a, 2), (b, 1), (c, 0)]
+    parts = [(co, pw) for co, pw in parts if co != 0]
+    head = ["x"] + [term_label(co, pw, i == 0) for i, (co, pw) in enumerate(parts)] + ["y"]
     rows = []
     pts = []
     for x in range(lo, hi + 1):
-        y = a * x * x + b * x + c
-        work = f"{ns(a)}({x})&sup2; + {ns(b)}({x}) + {ns(c)}".replace("+ " + MINUS, MINUS + " ")
-        rows.append((str(x).replace("-", MINUS), work, ns(y)))
+        vals = [co * (x ** pw) for co, pw in parts]
+        y = sum(vals)
+        rows.append([str(x).replace("-", MINUS)] + [ns(v) for v in vals] + [f"<b>{ns(y)}</b>"])
         pts.append((x, float(y)))
-    steps.append(table(rows, ["x", "Working: ax&sup2; + bx + c", "y"]))
+    x0 = lo
+    v0 = [co * (x0 ** pw) for co, pw in parts]
+    show = " ; ".join(f"{term_label(co, pw, True)} = {ns(co)} &times; ({str(x0).replace('-', MINUS)}){'&sup2;' if pw == 2 else ''} = {ns(v)}" if pw else f"{ns(co)} = {ns(v)}" for (co, pw), v in zip(parts, v0))
+    steps.append(f"<b>Worked example, x = {str(x0).replace('-', MINUS)}:</b> {show}. Add them: y = {' + '.join('(' + ns(v) + ')' if v < 0 else ns(v) for v in v0)} = <b>{ns(sum(v0))}</b>. (Remember: a negative number squared is positive, e.g. ({str(x0).replace('-', MINUS)})&sup2; = {x0 * x0}, because a negative times a negative is positive.)" if x0 < 0 else
+                 f"<b>Worked example, x = {x0}:</b> {show}. Add them: y = {' + '.join('(' + ns(v) + ')' if v < 0 else ns(v) for v in v0)} = <b>{ns(sum(v0))}</b>.")
+    steps.append(table(rows, head))
     steps.append("<b>Plot:</b> each pair (x, y) is a point. Plot them all, then join with a <b>smooth curve</b> using a pencil, not a ruler.")
     h = -b / (2 * a)
     return _ok(steps, {"image": plot(a, b, c, x_range=(lo, hi)), "text": f"<b>Turning point at x = {ns(h)}, y = {ns(c - b * b / (4 * a))}</b>"})
